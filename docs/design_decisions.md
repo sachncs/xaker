@@ -5,12 +5,11 @@ including what the code preserves exactly from the two source papers and
 where it extends them. It is the living companion to the math document
 (`docs/math.md`) and the public API (`docs/api.md`).
 
-## Source papers
+## Source paper
 
 - XSA — [arXiv:2603.09078](https://arxiv.org/abs/2603.09078)
-- LAKER — [arXiv:2604.25138](https://arxiv.org/html/2604.25138v1)
 
-The implementation is the spec; if a derivation in either paper
+The implementation is the spec; if a derivation in the paper
 contradicts the code, the code wins until a paper revision or
 explicit note moves the goalposts.
 
@@ -22,7 +21,7 @@ codebase used to scatter through `attention/` and `solver/`:
 | Site | Factory | Strategies |
 |---|---|---|
 | `xaker/solver/precond.py` | `Make(config)` | `Identity`, `Diagonal`, `Fast`, `Cccp` |
-| `xaker/attention/__init__.py` | `BLOCK[name](config)` | `Standard`, `Xsa`, `Laker` |
+| `xaker/attention/__init__.py` | `BLOCK[name](config)` | `Standard`, `Xsa`, `Fused` |
 | `xaker/attention/xsa.py` | `XsaStrategy(config, scale)` | `Projection`, `Zero`, `Mask` |
 
 Adding a new variant is one class plus one entry in the dispatch
@@ -37,7 +36,7 @@ The package ships three attention modules. They share `Base` and
 ### `Standard` (`attention/standard.py`)
 
 Vaswani-style scaled dot-product attention with L2-normalised
-queries and keys. The baseline against which `Xsa` and `Laker` are
+queries and keys. The baseline against which `Xsa` and `Fused` are
 benchmarked.
 
 ### `Xsa` (`attention/xsa.py`)
@@ -55,7 +54,7 @@ The factory `XsaStrategy(config, scale)` picks one based on `config.mode`.
 even when the strategy will ignore it. Keeping the allocation unconditional
 preserves `state_dict` keys across modes.
 
-### `Laker` (`attention/laker.py`)
+### `Fused` (`attention/fused.py`)
 
 The flagship. Combines an exponential kernel (`exp(cosine(q, k) / temp)`)
 with one of the four preconditioners and solves the regularised system
@@ -63,8 +62,8 @@ with one of the four preconditioners and solves the regularised system
 strategy is the same as for the standalone `Xsa` module.
 
 Solver outcomes land in a `Solve` dataclass
-(`x, iters, converged, res, history`); `Laker.attend` only falls back to
-`torch.linalg.solve` when `not converged and not finite`.
+(`x, iters, converged, res, history`); `Fused.attend` only falls back
+to `torch.linalg.solve` when `not converged and not finite`.
 
 ## Kernel choice
 
@@ -73,13 +72,13 @@ Solver outcomes land in a `Solve` dataclass
 
 | `kernel` | `k(q, k)` | Notes |
 |---|---|---|
-| `exp` | `exp(cosine(q, k) / temp)` with L2-normalised q/k | default; matches the LAKER paper |
+| `exp` | `exp(cosine(q, k) / temp)` with L2-normalised q/k | default; standard cosine-similarity exponential |
 | `rbf` | `exp(-||q - k||^2 / (2 * sigma^2))` | classical Gaussian |
 | `linear` | `q . k` | no positivity by itself; the lambda regulariser compensates |
 | `cosine` | `(q . k) / (||q|| * ||k||)` | scale-invariant, range [-1, 1] |
 
 `Kernel(dim, temp, symmetric, normalize, eps)` (`attention/kernel.py`)
-is the stateful counterpart for `Laker` — same math, learnable `temp`.
+is the stateful counterpart for `Fused` — same math, learnable `temp`.
 
 ## Preconditioners
 
@@ -112,7 +111,7 @@ Transformer block.
   value that kept the `Fast` preconditioner stable on a 128-token
   batch with `dim = 768`.
 - **Fallback direct solve**: when `pcg` reports `not converged`,
-  `Laker.attend` switches to `torch.linalg.solve` only when the
+  `Fused.attend` switches to `torch.linalg.solve` only when the
   residual is finite; an infinite residual is propagated.
 
 ## Reproducibility
@@ -165,5 +164,6 @@ non-novelty dimension below 2.
 - AMP / mixed-precision training paths.
 - Hugging Face `transformers` integration.
 
-These are listed as future work in the LAKER paper itself; until
-someone asks for them, they stay out of the package.
+These are listed as future work in published kernel-attention
+literature; until someone asks for them, they stay out of the
+package.

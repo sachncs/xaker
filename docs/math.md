@@ -36,7 +36,8 @@ K_{ij} = \exp\left( \frac{\cos(q_i, k_j)}{temp} \right)
 with `q` and `k` L2-normalised by default (`normalize = True`). The
 exponential argument is clamped to `[-100, 100]` before `exp` to
 prevent overflow in lower-precision dtypes. With `temp = 1` this
-reduces to the cosine-similarity kernel of the LAKER paper.
+reduces to the cosine-similarity exponential kernel used as the
+default in `xaker`.
 
 ### RBF kernel (`kernel = "rbf"`)
 
@@ -90,7 +91,7 @@ one based on `config.mode`. `scale` is always
 
 ## 3. Regularised operator
 
-The Laker attention rewrites attention as kernel ridge regression:
+The :class:`Fused` attention rewrites attention as kernel ridge regression:
 
 ```math
 (K + \lambda I) \alpha = v
@@ -148,7 +149,7 @@ class Solve:
     history: List[float]
 ```
 
-`Laker.attend` falls back to `torch.linalg.solve` when
+`Fused.attend` falls back to `torch.linalg.solve` when
 `not solve.converged and finite(solve.x)`; an infinite solution is
 propagated so the surrounding `finite()` check fails loudly.
 
@@ -250,7 +251,7 @@ Mitigations:
 
 ## 8. Computational complexity
 
-| Operation | `Standard` | `Xsa` | `Laker` (PCG) |
+| Operation | `Standard` | `Xsa` | `Fused` (PCG) |
 |---|---|---|---|
 | Q/K/V projection | `O(n * d^2)` | `O(n * d^2)` | `O(n * d^2)` |
 | Kernel / scores | `O(n^2 * d)` | `O(n^2 * d)` | `O(n^2 * d)` |
@@ -263,7 +264,7 @@ Mitigations:
 
 ## 9. Worked example
 
-A `Laker` call with `mode = "subtract"` on a `4`-head,
+A `Fused` call with `mode = "subtract"` on a `4`-head,
 `dim = 64` block, `seq_len = 16`, single sample:
 
 1. Project `x` to `q, k, v` via `Qkv`.

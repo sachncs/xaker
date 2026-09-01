@@ -1,4 +1,4 @@
-"""Numerical stability tests for the v2 Laker attention.
+"""Numerical stability tests for the xaker attention stack.
 
 Verifies finiteness under extreme input magnitudes and long sequences.
 """
@@ -30,13 +30,13 @@ def test_std_small() -> None:
     assert finite(out, "std small", raise_error=False)
 
 
-def test_laker_large() -> None:
-    """Laker attention produces finite output for x * 100."""
+def test_fused_large() -> None:
+    """Fused attention produces finite output for x * 100."""
     cfg = Config(dim=64, heads=4, drop=0.0)
     attn = BLOCK["fused"](cfg).eval()
     x = torch.randn(2, 32, cfg.dim) * 100
     out = attn(x)
-    assert finite(out, "laker large", raise_error=False)
+    assert finite(out, "fused large", raise_error=False)
 
 
 def test_xsa_large() -> None:
@@ -48,8 +48,8 @@ def test_xsa_large() -> None:
     assert finite(out, "xsa large", raise_error=False)
 
 
-def test_laker_long() -> None:
-    """Laker is stable on a long sequence (length=64)."""
+def test_fused_long() -> None:
+    """Fused is stable on a long sequence (length=64)."""
     cfg = Config(dim=64, heads=4, drop=0.0)
     attn = BLOCK["fused"](cfg).eval()
     x = torch.randn(1, 64, cfg.dim)

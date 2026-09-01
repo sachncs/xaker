@@ -32,7 +32,7 @@ class Spec:
         warmup: Warmup iterations (untimed).
         runs: Timed iterations.
         seeds: Random seeds for multi-seed runs.
-        precond: Preconditioner kind for Laker.
+        precond: Preconditioner kind for the fused block.
     """
 
     lengths: List[int] = field(default_factory=lambda: [64, 128, 256])
@@ -172,7 +172,7 @@ def peak(module: nn.Module, x: torch.Tensor, *, ctx: Ctx) -> float:
 def converge(
     attn: nn.Module, x: torch.Tensor, *, ctx: Ctx, iters: int = 50
 ) -> tuple[bool, float, float]:
-    """Measure PCG convergence on the Laker attention kernel.
+    """Measure PCG convergence on the fused attention kernel.
 
     Args:
         attn: Attention module to probe.

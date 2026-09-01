@@ -121,7 +121,7 @@ class Qkv(nn.Module):
 
     Wraps three independent ``nn.Linear`` layers with ``bias=False``. Weights
     are managed by PyTorch's parameter system and can be initialised externally
-    (``Laker.init`` does so).
+    (:meth:`Fused.init` does so).
     """
 
     def __init__(self, config: Config) -> None:
@@ -136,7 +136,7 @@ class Qkv(nn.Module):
             :class:`torch.nn.Linear` layers (``w_q``, ``w_k``,
             ``w_v``), each ``dim -> dim`` with ``bias=False``.
             Initial weights follow PyTorch's default initialization;
-            external modules (e.g. :meth:`Laker.init`)
+            external modules (e.g. :meth:`Fused.init`)
             may reinitialise them.
         """
         super().__init__()

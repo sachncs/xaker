@@ -13,7 +13,7 @@ import pytest
 import torch
 from torch import nn
 
-from xaker.attention import BLOCK, Kernel, Laker, Standard, Xsa
+from xaker.attention import BLOCK, Fused, Kernel, Standard, Xsa
 from xaker.config import Config
 from xaker.solver.precond import (
     Cccp,
@@ -41,7 +41,7 @@ class TestBlock:
 
     @pytest.mark.parametrize(
         "kind,cls",
-        [("standard", Standard), ("xsa", Xsa), ("fused", Laker)],
+        [("standard", Standard), ("xsa", Xsa), ("fused", Fused)],
     )
     def test_kind(self, kind: str, cls) -> None:
         cfg = Config(dim=64, heads=4)

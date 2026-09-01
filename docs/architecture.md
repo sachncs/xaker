@@ -1,7 +1,10 @@
 # Architecture
 
-XAKER (XSA + LAKER) fuses two complementary attention mechanisms
-into a single module solved with a preconditioned iterative method.
+xaker fuses Exclusive Self Attention (XSA) with a learnable
+exponential kernel and a Preconditioned Conjugate Gradient solve
+into a single module. The flagship :class:`Fused` block implements
+the kernel-regression formulation of attention and solves it
+iteratively with a configurable preconditioner.
 
 ## Module tree
 
@@ -13,7 +16,7 @@ xaker/
 │   ├── core.py              Base, Qkv, keep, merge, broadcast, heads
 │   ├── func.py              kernel
 │   ├── kernel.py            Kernel
-│   ├── laker.py             Laker
+│   ├── fused.py             Fused
 │   ├── ops.py               rms, zerodiag
 │   ├── standard.py          Standard
 │   └── xsa.py               Xsa, XsaStrategy, Projection, Zero, Mask
@@ -55,12 +58,12 @@ a string of `if/elif` branches.
 | Site | Factory | Strategies |
 |---|---|---|
 | `xaker/solver/precond.py` | `Make(config)` | `Identity`, `Diagonal`, `Fast`, `Cccp` |
-| `xaker/attention/__init__.py` | `BLOCK[name](config)` | `Standard`, `Xsa`, `Laker` |
+| `xaker/attention/__init__.py` | `BLOCK[name](config)` | `Standard`, `Xsa`, `Fused` |
 | `xaker/attention/xsa.py` | `XsaStrategy(config, scale)` | `Projection`, `Zero`, `Mask` |
 
 Adding a new variant is one class + one entry in the dispatch table.
 
-## Fused Laker pipeline
+## Fused pipeline
 
 For each forward pass on per head:
 

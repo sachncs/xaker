@@ -1,7 +1,7 @@
-"""Shape verification tests for the XAKER components.
+"""Shape verification tests for the xaker components.
 
 * :class:`Standard` preserves ``(batch, seq_len, dim)``.
-* :class:`Xsa` and the :class:`Laker` are verified across batch sizes
+* :class:`Xsa` and the :class:`Fused` are verified across batch sizes
   and sequence lengths.
 * :class:`Block` preserves the same shape.
 * The full :class:`Model` returns ``(batch, seq_len, vocab_size)`` when

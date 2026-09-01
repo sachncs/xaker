@@ -1,4 +1,4 @@
-"""Exponential attention-kernel implementation used by LAKER v2.
+"""Exponential attention-kernel implementation.
 
 The module computes ``exp(similarity / temp) + eps`` with optional Q/K
 normalization and optional symmetric averaging. Scores are clamped before
@@ -17,7 +17,7 @@ import torch
 from torch import nn
 
 class Kernel(nn.Module):
-    """Exponential attention kernel used by ``Laker``.
+    """Exponential attention kernel used by :class:`Fused`.
 
     Computes ``exp(sim(q_i, k_j) / temp)``, optionally averages the
     result with its transpose, then adds ``eps``. Symmetry and entrywise

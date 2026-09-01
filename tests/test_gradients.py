@@ -1,9 +1,10 @@
-"""Gradient-flow regression tests for the XAKER stack.
+"""Gradient-flow regression tests for the xaker stack.
 
 A single ``output.sum().backward()`` call must produce finite input
-gradients for Standard, XSA, and v2 :class:`Laker`. The fused attention's
-parameter gradients are also checked for finiteness; multiple training-style
-backward passes on the full model must stay NaN/Inf-free.
+gradients for Standard, Xsa, and Fused. The fused attention's
+parameter gradients are also checked for finiteness; multiple
+training-style backward passes on the full model must stay
+NaN/Inf-free.
 """
 
 from __future__ import annotations
@@ -14,12 +15,14 @@ import torch
 from xaker.config import Config
 from xaker.attention.standard import Standard
 from xaker.attention.xsa import Xsa
-from xaker.attention.laker import Laker
+from xaker.attention.fused import Fused
+
 
 @pytest.fixture
 def config() -> Config:
     """Small test config with drop=0."""
     return Config(dim=64, heads=4, drop=0.0)
+
 
 class TestGrad:
     """Test gradient flow through attention modules."""
@@ -45,9 +48,9 @@ class TestGrad:
         assert x.grad is not None
         assert torch.isfinite(x.grad).all()
 
-    def test_laker(self, config: Config) -> None:
-        """Laker (v2) gradients; input and parameters."""
-        attn = Laker(config)
+    def test_fused(self, config: Config) -> None:
+        """Fused attention gradients; input and parameters."""
+        attn = Fused(config)
         attn.train()
         x = torch.randn(2, 32, config.dim, requires_grad=True)
         out = attn(x)

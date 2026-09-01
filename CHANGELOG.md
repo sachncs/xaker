@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Package renamed from `laker-xsa` to `xaker`**. The import path is now `xaker`
   (was `laker_xsa`); PyPI distribution is `xaker`; console scripts are
   `xaker-train`, `xaker-eval`, `xaker-bench`, `xaker-validate`; the GitHub
-  repository is `sachncs/xaker`. Renamed because `xaker` (XSA + LAKER) is the
-  single searchable brand and a single-word name reduces noise in user code,
+  repository is `sachncs/xaker`. Renamed to a single-word brand that
+  fits the project's naming convention and reduces noise in user code,
   papers, and CI logs.
 - **v1 legacy attention/preconditioner classes hard-deleted.** `KernelAttention
   Regression`, `FusedXSALAKERAttention`, `LearnedPreconditioner`, `KernelFunction`,

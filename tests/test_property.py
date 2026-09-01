@@ -1,7 +1,7 @@
-"""Property-based tests for the XAKER attention stack.
+"""Property-based tests for the xaker attention stack.
 
 Verifies shape preservation, finiteness, and determinism under random inputs
-across Standard, Xsa, and Laker.
+across Standard, Xsa, and Fused.
 """
 
 from __future__ import annotations
@@ -32,8 +32,8 @@ def test_shape_xsa() -> None:
         assert mod(x).shape == x.shape
 
 
-def test_shape_laker() -> None:
-    """Laker preserves (batch, length, dim)."""
+def test_shape_fused() -> None:
+    """Fused preserves (batch, length, dim)."""
     cfg = Config(dim=64, heads=4, drop=0.0)
     mod = BLOCK["fused"](cfg).eval()
     for _ in range(5):
@@ -52,7 +52,7 @@ def test_finite_inputs() -> None:
 
 
 def test_deterministic() -> None:
-    """Laker is deterministic in eval() mode."""
+    """Fused is deterministic in eval() mode."""
     cfg = Config(dim=64, heads=4, drop=0.0)
     mod = BLOCK["fused"](cfg).eval()
     x = torch.randn(2, 16, cfg.dim)

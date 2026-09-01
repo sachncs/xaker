@@ -2,7 +2,8 @@
 
 Reference implementation of scaled dot-product attention as described in
 "Attention Is All You Need" (Vaswani et al., 2017). Serves as the baseline
-for comparing XSA and LAKER variants.
+for comparing vanilla attention against xaker's XSA-only and fused-XSA
+variants.
 
 The math is the textbook form,
 ``Attention(Q, K, V) = softmax(Q K^T / sqrt(headdim)) V``,

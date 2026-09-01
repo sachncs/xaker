@@ -24,16 +24,16 @@ XAKER is a small Python library that answers one question:
 > that doesn't suffer from tokens copying themselves or eigenvalues
 > collapsing?"*
 
-It implements the math from two research papers
-([XSA: arXiv:2603.09078](https://arxiv.org/abs/2603.09078) and
-[LAKER: arXiv:2604.25138](https://arxiv.org/html/2604.25138v1)).
-You don't need to read either paper to use the library — the
+xaker implements Exclusive Self Attention (XSA) for Transformer
+models, with a flagship fused variant that combines the XSA
+self-exclusion step with a learnable exponential kernel and a
+Preconditioned Conjugate Gradient solve. The reference paper is
+[XSA: arXiv:2603.09078](https://arxiv.org/abs/2603.09078); the
 implementation is the spec, and the tests are the contract.
 
-The flagship class — `Laker` — fuses the two ideas into a single
-attention module solved by Preconditioned Conjugate Gradient (PCG).
-Swap it in for `Standard` attention and the rest of your Transformer
-keeps working.
+The flagship class — `Fused` — combines XSA with a kernel ridge
+regression formulation solved by PCG. Swap it in for `Standard`
+attention and the rest of your Transformer keeps working.
 
 ---
 
@@ -66,8 +66,8 @@ claims and how it's checked.
 - **`Xsa` attention** — Exclusive Self Attention: removes each
   token's self-projection so tokens can only aggregate context.
   ([Glossary: self-bias](docs/glossary.md))
-- **`Laker` attention** — Kernel ridge regression with learned
-  preconditioning, solved by PCG. The flagship module.
+- **`Fused` attention** — Kernel ridge regression with XSA
+  self-exclusion, solved by PCG. The flagship module.
   ([Glossary: kernel ridge regression](docs/glossary.md))
 - **Four kernel types** — `exp`, `rbf`, `linear`, `cosine`. All
   share one config field.
@@ -78,7 +78,7 @@ claims and how it's checked.
 - **Single-word API** — Every public identifier is one word. No
   `apply_kernel_operator`-style shims.
 - **Polymorphic dispatch** — `BLOCK[kind](config)` switches
-  between `Standard`, `Xsa`, and `Laker` without `if/elif` mode
+  between `Standard`, `Xsa`, and `Fused` without `if/elif` mode
   chains.
 - **Typed bench driver** — `xaker.bench.Spec` runs reproducibility
   sweeps and writes schema-stable JSON.
@@ -179,7 +179,7 @@ Open a Python interpreter (`python3` in your terminal) and try this:
 import torch                           # pytorch is the deep-learning library
 from xaker import Config, Model        # import the config + the Transformer
 
-# A small Transformer with the Laker (fused) attention variant.
+# A small Transformer with the Fused (XSA + kernel) attention variant.
 config = Config(dim=512, heads=8, layers=4, vocab=32000, attention="fused")
 
 # Build the model
@@ -323,7 +323,7 @@ xaker/
 │   │   ├── core.py           # Base, Qkv, free functions
 │   │   ├── standard.py       # Standard scaled dot-product
 │   │   ├── xsa.py            # Exclusive Self Attention
-│   │   ├── laker.py          # Fused XSA + LAKER (flagship)
+│   │   ├── fused.py          # Fused XSA + kernel attention (flagship)
 │   │   ├── kernel.py         # Kernel module
 │   │   ├── func.py           # Stateless kernel + op
 │   │   └── ops.py            # zerodiag, rms
@@ -444,7 +444,7 @@ open a public GitHub issue for security problems.
 
 ```bibtex
 @software{xaker,
-  title = {XAKER: Fused Exclusive Self Attention and LAKER Kernel Attention},
+  title = {xaker: Exclusive Self Attention for Transformer Models},
   author = {sachin},
   year = {2026},
   url = {https://github.com/sachncs/xaker},
