@@ -42,9 +42,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   convergence measurements) emitting schema-stable JSON with `git_sha`,
   environment, per-seed statistics.
 - `xaker.rubric` package with six dimensions: `Novelty`, `Repro`, `Correctness`,
-  `Efficiency`, `Stability`, `Usability`.
+  `Efficiency`, `Stability`, `Usability`. Enforced in CI.
 - `xaker-validate` CLI command and pytest plugin (`@pytest.mark.rubric`).
 - `Ctx` dataclass for explicit device/dtype context.
+- `examples/run_paper_experiment.py` — single typed driver consuming YAML specs
+  in `examples/specs/`. Replaces six long `examples/*.py` scripts.
+- 276 tests across `tests/`, 85.41% coverage, all single-word test method names
+  where possible.
+
+### Changed
+- **README restructured** to the convexfolio template (commit `cac981e`,
+  2026-09-01): "What is this?", "Who is this for?", "Before you start",
+  three installation options, two first-run flows (CLI + Python), "Plain English"
+  config tables, categorised "Where to go next" section. Outdated identifiers
+  (`XSA_LAKER_Config`, `LakerAttention`, `--d-model`, `apply_kernel_operator`,
+  `transformer_block.py`, `xaker-benchmark`) replaced with current names
+  (`Config`, `Laker`, `--dim`, `op`, `block.py`, `xaker-bench`).
 
 ### Removed
 - v1 legacy attention classes (`KernelFunction`, `LearnedPreconditioner`,
@@ -57,32 +70,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pseudo-private globals (`_SOFTPLUS`, `_DEPRECATION_MSG`, `TENSOR_CLIP_ABS`).
 - Long `examples/*.py` scripts replaced by one typed experiment driver.
 
-## [Unreleased]
+## [0.3.0] - 2026-07-13
 
 ### Fixed
-- **pylint E1102 `not-callable` at 5 call sites** (commit `6d62150`, 2026-07-13T13:13:04Z).
-  Switched the solver/benchmarks code from `torch.nn.functional.softplus` and
-  `torch.linalg.vector_norm` (C-extension builtins whose `__call__` pylint's
-  astroid inference cannot resolve) to the equivalent `nn.Softplus()` module
-  instance and `torch.sqrt(torch.sum(...))`. Why: CI pylint score was 9.80/10
-  with five E1102 errors blocking a clean run; suppression directives were
-  rejected as not addressing the underlying inference problem, so the actual
-  call expressions were rewritten to ones astroid resolves correctly. Runtime
-  behavior is identical (verified: `pylint` 10.00/10, `black` clean, `mypy`
-  no errors, `pytest` 269 passed).
+- **pylint E1102 `not-callable` at 5 call sites** (commit `6d62150`,
+  2026-07-13T13:13:04Z). Switched the solver/benchmarks code from
+  `torch.nn.functional.softplus` and `torch.linalg.vector_norm` (C-extension
+  builtins whose `__call__` pylint's astroid inference cannot resolve) to the
+  equivalent `nn.Softplus()` module instance and `torch.sqrt(torch.sum(...))`.
+  Why: CI pylint score was 9.80/10 with five E1102 errors blocking a clean
+  run; suppression directives were rejected as not addressing the underlying
+  inference problem, so the actual call expressions were rewritten to ones
+  astroid resolves correctly. Runtime behavior is identical (verified: `pylint`
+  10.00/10, `black` clean, `mypy` no errors, `pytest` 269 passed).
 
 ### Changed
-- **README restructured** to match the reference template (commit `6d62150`,
-  2026-07-13T13:13:04Z): centered HTML title block, reordered sections
-  (Features → Installation → Quick Start → Configuration → Project Structure
-  → Development → Tech Stack → Benchmarks → Roadmap → Contributing → Code of
-  Conduct → Security → Citation → License), and a new Tech Stack table. The
-  "From PyPI" subsection was dropped because the package is not yet
-  published. Why: the existing README used a different layout than the
-  project's reference template; aligning the structure while preserving
-  every XAKER-specific fact (arXiv IDs, module names, CLI commands,
-  test counts, dataclass fields, benchmark numbers) keeps the docs
-  discoverable across sibling repositories.
+- **README restructured** (commit `6d62150`, 2026-07-13T13:13:04Z):
+  centered HTML title block, reordered sections (Features → Installation →
+  Quick Start → Configuration → Project Structure → Development → Tech Stack
+  → Benchmarks → Roadmap → Contributing → Code of Conduct → Security →
+  Citation → License), and a new Tech Stack table. The "From PyPI" subsection
+  was dropped because the package was not yet published. Why: the existing
+  README used a different layout than the project's reference template;
+  aligning the structure while preserving every XAKER-specific fact (arXiv
+  IDs, module names, CLI commands, test counts, dataclass fields, benchmark
+  numbers) keeps the docs discoverable across sibling repositories.
 
 ### Documentation
 - **Author / contact updated to `sachin` <sachncs@gmail.com>** (commit
@@ -165,7 +177,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation: Architecture overview, mathematical derivations, design decisions, limitations
 - MIT License
 
-[Unreleased]: https://github.com/sachncs/xaker/compare/v0.2.3...HEAD
+[0.4.0]: https://github.com/sachncs/xaker/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/sachncs/xaker/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/sachncs/xaker/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/sachncs/xaker/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/sachncs/xaker/compare/v0.2.0...v0.2.1
