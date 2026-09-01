@@ -52,9 +52,22 @@ def pcg(
 ) -> Solve:
     """Solve ``(K + lambda I) x = b`` by PCG.
 
-    Returns a :class:`Solve` dataclass with convergence status and
-    per-iteration residual history. The iterate is clamped to
-    ``[-BOUND, BOUND]`` after each direction update.
+    Args:
+        kernel: Kernel matrix of shape ``(batch, heads, n, n)``.
+        b: Right-hand side of shape ``(batch, heads, n, ...)``.
+        lam: Ridge regulariser broadcastable to kernel's diagonal.
+        precond_data: Payload from ``Make(config).build(...)``; may
+            be ``None`` for the unpreconditioned fallback.
+        apply: Callable ``apply(r, precond_data) -> Tensor``
+            implementing ``P(r)``. ``None`` falls back to identity.
+        iters: Maximum iteration count.
+        tol: Relative residual convergence threshold.
+        miniters: Minimum iterations before the residual is checked.
+        x0: Optional warm start; ``None`` starts from zero.
+
+    Returns:
+        :class:`Solve` with the final iterate, iteration count,
+        convergence flag, residual norm, and per-iteration history.
     """
     if x0 is not None:
         x = x0
@@ -122,8 +135,20 @@ def richardson(
 ) -> Solve:
     """Solve ``(K + lambda I) x = b`` by preconditioned Richardson iteration.
 
-    Returns a :class:`Solve` dataclass. Richardson has no residual test,
-    so ``converged`` is always ``False``.
+    Args:
+        kernel: Kernel matrix of shape ``(batch, heads, n, n)``.
+        b: Right-hand side of shape ``(batch, heads, n, ...)``.
+        lam: Ridge regulariser broadcastable to kernel's diagonal.
+        precond_data: Payload from ``Make(config).build(...)``; may
+            be ``None``.
+        apply: Callable ``apply(r, precond_data) -> Tensor``; ``None``
+            falls back to identity.
+        iters: Number of fixed updates to perform.
+        omega: Scalar step size.
+
+    Returns:
+        :class:`Solve` with the iterate and per-iteration history.
+        ``converged`` is always ``False`` (no residual test).
     """
     x = torch.zeros_like(b)
     history: List[float] = []

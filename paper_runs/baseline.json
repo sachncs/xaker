@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "git_sha": "2dc5e238e0ce396a9957899dfdea639458d83a30",
+  "git_sha": "b5cd93ada2773a24d038cc9397c83f56b57110b0",
   "torch_version": "2.10.0",
   "cuda": false,
   "device_name": "cpu",
@@ -24,9 +24,9 @@
   },
   "results": {
     "standard:16": {
-      "forward_ms_mean": 0.2048330061370507,
+      "forward_ms_mean": 0.15091699606273323,
       "forward_ms_std": 0.0,
-      "backward_ms_mean": 11.249750001297798,
+      "backward_ms_mean": 12.303499999688938,
       "backward_ms_std": 0.0,
       "memory_mib": 0.0,
       "iters_mean": 1.0,

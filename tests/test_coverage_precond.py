@@ -5,13 +5,7 @@ from __future__ import annotations
 import torch
 
 from xaker.config import Config
-from xaker.solver.precond import (
-    Cccp,
-    Diagonal,
-    Fast,
-    Identity,
-    Make,
-)
+from xaker.solver.precond import Make
 
 
 def test_identity_apply() -> None:

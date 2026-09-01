@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "XAKER: Fused Exclusive Self Attention and LAKER Kernel Attention"
-abstract: "Production-grade implementation of fused Exclusive Self Attention (XSA) and LAKER-style Kernel Attention for Transformer models."
+title: "XAKER: Exclusive Self Attention for Transformer Models"
+abstract: "Production-grade implementation of Exclusive Self Attention (XSA) for Transformer models, including a fused XSA + kernel attention variant."
 authors:
   - family-names: "sachin"
     name: "sachin"
@@ -16,7 +16,6 @@ keywords:
   - "attention"
   - "transformer"
   - "xsa"
-  - "laker"
   - "kernel-methods"
   - "pytorch"
   - "deep-learning"

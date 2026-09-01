@@ -27,8 +27,12 @@ def markdown(r: Rubric) -> str:
 def write(r: Rubric, path: Path) -> None:
     """Write the rubric result as both Markdown and JSON to ``path``.
 
-    The Markdown summary goes to ``path/summary.md``; the JSON dump goes
-    to ``path/rubric.json``.
+    Args:
+        r: Rubric result to serialize.
+        path: Output directory. Created if missing.
+
+    Side Effects:
+        Writes ``path/summary.md`` and ``path/rubric.json``.
     """
     path.mkdir(parents=True, exist_ok=True)
     (path / "summary.md").write_text(markdown(r), encoding="utf-8")

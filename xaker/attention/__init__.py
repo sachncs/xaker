@@ -59,9 +59,9 @@ __all__ = [
     "XsaMode",
     "XsaStrategy",
     "Zero",
-    "keep",
     "broadcast",
-    "compute_kernel_matrix",
     "heads",
+    "keep",
+    "kernel",
     "merge",
 ]

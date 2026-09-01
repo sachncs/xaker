@@ -10,12 +10,6 @@ Thank you for considering contributing to XAKER! This document outlines the proc
 4. Install development dependencies: `pip install -e ".[dev]"`
 5. Run the tests to verify everything works: `pytest tests/ -v`
 
-Or use the setup script:
-
-```bash
-bash setup.sh
-```
-
 ## Branch Naming
 
 Use descriptive branch names with a prefix:

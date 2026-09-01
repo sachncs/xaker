@@ -14,6 +14,16 @@ from xaker.rubric import grade, markdown, write
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse CLI flags, run the rubric, and enforce pass thresholds.
+
+    Args:
+        argv: Optional argument vector; ``None`` reads from
+            ``sys.argv``.
+
+    Returns:
+        Process exit code; ``0`` when the rubric passes, ``1``
+        otherwise.
+    """
     parser = argparse.ArgumentParser(description="Run paper-worthiness rubric")
     parser.add_argument("--repo-root", default=".", help="Path to repository root")
     parser.add_argument("--min-total", type=int, default=14, help="Minimum total score to pass")

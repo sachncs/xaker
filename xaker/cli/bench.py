@@ -6,11 +6,22 @@ import argparse
 import sys
 from pathlib import Path
 
+import torch
+
 from xaker.bench import Spec, run, write
 from xaker.utils.ctx import Ctx
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse CLI flags and dispatch to :func:`xaker.bench.run`.
+
+    Args:
+        argv: Optional argument vector; ``None`` reads from
+            ``sys.argv``.
+
+    Returns:
+        Process exit code; ``0`` on success.
+    """
     parser = argparse.ArgumentParser(description="Run XAKER benchmarks")
     parser.add_argument("--dim", type=int, default=64)
     parser.add_argument("--heads", type=int, default=4)

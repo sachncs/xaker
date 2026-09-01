@@ -1,208 +1,283 @@
 # Mathematical Foundations
 
-## 1. Exclusive Self Attention (XSA)
+This document states the math behind every public function in
+XAKER, in the same order the package dispatches them: kernel
+construction, regularised operator, iterative solve, output
+projection.
 
-### Standard Self-Attention
+The implementation is the spec; if a derivation here contradicts the
+code, the code wins. Cross-reference: `docs/design_decisions.md` for
+the choices the math does not force, `docs/api.md` for the function
+signatures.
 
-Given queries Q, keys K, and values V:
+## Notation
 
-$$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
+- `q, k, v` — query, key, value tensors of shape
+  `(batch, heads, seq_len, headdim)`.
+- `K` — kernel matrix of shape
+  `(batch, heads, seq_len, seq_len)`.
+- `lam` — ridge regulariser (always positive after
+  `softplus(raw) + eps`).
+- `BOUND = 1e6` — clamp constant.
+- `n = seq_len`, `d = headdim`.
 
-For token i, the output is:
+## 1. Kernel construction
 
-$$y_i = \sum_j \text{softmax}(Q_i \cdot K_j / \sqrt{d}) \cdot V_j$$
+The four supported kernels live in
+`xaker/attention/func.py:kernel` and
+`xaker/attention/kernel.py:Kernel` (stateful counterpart).
 
-This includes self-attention when j = i.
+### Exponential kernel (`kernel = "exp"`)
 
-### XSA Projection Removal
+```math
+K_{ij} = \exp\left( \frac{\cos(q_i, k_j)}{temp} \right)
+```
 
-XSA removes the component of y_i aligned with v_i:
+with `q` and `k` L2-normalised by default (`normalize = True`). The
+exponential argument is clamped to `[-100, 100]` before `exp` to
+prevent overflow in lower-precision dtypes. With `temp = 1` this
+reduces to the cosine-similarity kernel of the LAKER paper.
 
-$$y_i^{\text{XSA}} = y_i - \text{proj}_{v_i}(y_i)$$
+### RBF kernel (`kernel = "rbf"`)
 
-Where the projection is:
+```math
+K_{ij} = \exp\left( -\frac{\|q_i - k_j\|^2}{2 \sigma^2} \right)
+```
 
-$$\text{proj}_{v_i}(y_i) = \frac{y_i \cdot v_i}{v_i \cdot v_i + \epsilon} v_i$$
+with `sigma = 1`. Positive definite by construction; smooth and
+translation-invariant.
 
-**Derivation:**
+### Linear kernel (`kernel = "linear"`)
 
-The projection of vector a onto vector b is:
+```math
+K_{ij} = q_i \cdot k_j
+```
 
-$$\text{proj}_b(a) = \frac{a \cdot b}{||b||^2} b$$
+Not positive definite by itself; the ridge regulariser compensates.
 
-We add ε for numerical stability. After subtraction:
+### Cosine kernel (`kernel = "cosine"`)
 
-$$y_i^{\text{XSA}} \cdot v_i = \left(y_i - \frac{y_i \cdot v_i}{v_i \cdot v_i} v_i\right) \cdot v_i = 0$$
+```math
+K_{ij} = \frac{q_i \cdot k_j}{\|q_i\| \cdot \|k_j\|}
+```
 
-Thus y_i^XSA is orthogonal to v_i.
+Scale-invariant; range `[-1, 1]`. Same caveat as linear regarding
+positive-definiteness.
 
-### Alternative XSA Formulations
+## 2. XSA projection removal
 
-**Zero-diagonal attention:**
-Set attention score diagonal to -∞ before softmax:
+For each token `i` and value vector `v_i`, XSA subtracts the
+projection of the attention output `y_i` onto `v_i`:
 
-$$A_{ii} = -\infty \implies \text{softmax}(A)_{ii} = 0$$
+```math
+y_i^{\text{XSA}} = y_i - \frac{y_i \cdot v_i}{v_i \cdot v_i} \cdot v_i
+```
 
-**Mask-based exclusion:**
-Use explicit binary mask M where M_{ii} = 0.
+`y_i^{XSA}` is therefore orthogonal to `v_i` by construction.
+The XSA paper describes this as the canonical strategy; XAKER
+implements it as the `Projection` class, with two further
+strategies wired into the `Xsa` strategy enum:
 
-## 2. Kernel Attention Regression
+- `Zero` (`mode = "zero"`) — set `K_{ii} = 0` before softmax, so
+  `y_i` no longer contains any self-aligned component.
+- `Mask` (`mode = "mask"`) — combine diagonal zeroing with
+  projection subtraction.
 
-### From Attention to Kernel Regression
+`XsaStrategy(config, scale)` is the single entry point that picks
+one based on `config.mode`. `scale` is always
+`nn.Parameter(torch.ones(1))` regardless of mode, allocated by
+`Xsa.__init__`.
 
-Standard attention:
+## 3. Regularised operator
 
-$$\text{output} = \text{softmax}(QK^T/\sqrt{d}) V$$
+The Laker attention rewrites attention as kernel ridge regression:
 
-Kernel regression formulation:
+```math
+(K + \lambda I) \alpha = v
+```
 
-$$(K + \lambda I)\alpha = V$$
-$$\text{output} = K\alpha$$
+with output `K alpha`. `xaker.solver.func:op` evaluates the
+left-hand side:
 
-Where K is a positive definite kernel matrix.
+```math
+op(K, x, \lambda) = K x + \lambda x
+```
 
-### Kernel Functions
+returned in a single matvec + scaled identity product.
 
-**RBF (Gaussian) Kernel:**
+## 4. Preconditioned Conjugate Gradient
 
-$$k(x, y) = \exp\left(-\frac{||x - y||^2}{2\sigma^2}\right)$$
+`xaker.solver.cg:pcg` solves `(K + lam I) alpha = v` by PCG with a
+configurable preconditioner `P`. Given the preconditioner factory
+`apply = Make(config).apply`:
 
-Properties:
-- Positive definite
-- Translation invariant
-- Parameterized by bandwidth σ
+```math
+\alpha_0 = 0,\ r_0 = v,\ z_0 = P(r_0),\ p_0 = z_0
+```
 
-**Linear Kernel:**
+```math
+\alpha_{t+1} = \alpha_t + \frac{r_t \cdot z_t}{p_t \cdot A p_t} p_t
+```
 
-$$k(x, y) = x \cdot y + 1$$
+```math
+r_{t+1} = r_t - \frac{r_t \cdot z_t}{p_t \cdot A p_t} A p_t
+```
 
-Properties:
-- Simple, fast computation
-- May not capture complex relationships
+```math
+z_{t+1} = P(r_{t+1})
+```
 
-**Cosine Kernel:**
+```math
+\beta_{t+1} = \frac{r_{t+1} \cdot z_{t+1}}{r_t \cdot z_t}
+```
 
-$$k(x, y) = \frac{x \cdot y}{||x|| \cdot ||y||} + 1$$
+```math
+p_{t+1} = z_{t+1} + \beta_{t+1} p_t
+```
 
-Properties:
-- Scale invariant
-- Range [0, 2]
+Convergence stops when `\|r_t\| < tol * \|v\|` or when
+`iters == config.pcg`. The result is returned as a `Solve` dataclass:
 
-### Kernel Ridge Regression
+```python
+@dataclass
+class Solve:
+    x: torch.Tensor
+    iters: int
+    converged: bool
+    res: float
+    history: List[float]
+```
 
-The formulation (K + λI)α = V is kernel ridge regression with:
-- Kernel matrix K
-- Regularization λ
-- Target values V
+`Laker.attend` falls back to `torch.linalg.solve` when
+`not solve.converged and finite(solve.x)`; an infinite solution is
+propagated so the surrounding `finite()` check fails loudly.
 
-The closed-form solution is:
+## 5. Preconditioner parameterisations
 
-$$\alpha = (K + \lambda I)^{-1} V$$
+Each strategy in `xaker/solver/precond.py` exposes
+`build(K, lam, length) -> Cache` and `apply(r, data) -> Tensor`.
 
-For large sequences, we solve iteratively.
+### `Identity`
 
-## 3. Preconditioned Iterative Solving
+```math
+P(r) = r
+```
 
-### Richardson Iteration
+No build cost, no convergence improvement. Used for sanity checks.
 
-Basic Richardson iteration for Ax = b:
+### `Diagonal`
 
-$$x_{t+1} = x_t + (b - Ax_t)$$
+`build` extracts the per-row L1 norm of `K + lam I`:
 
-Converges when spectral radius ρ(I - A) < 1.
+```math
+d_i = \frac{1}{|K_{i,:}| + \epsilon}
+```
 
-### Preconditioned Richardson
+`apply` rescales element-wise:
 
-With preconditioner P ≈ A⁻¹:
+```math
+P(r)_i = d_i r_i
+```
 
-$$x_{t+1} = x_t + P(b - Ax_t)$$
+Cheap and effective when `K` is row-dominant.
 
-Converges faster when P better approximates A⁻¹.
+### `Fast`
 
-### Our Preconditioner
+Low-rank plus diagonal, `P = diag(d) + UU^T`. `build` draws `r`
+direction samples from the kernel and fits them with a softplus
+diagonal plus a learnable linear projection:
 
-We use:
+```math
+\bar u_j = \text{sample}(\text{std}(K_j), r)
+```
 
-$$P = \text{diag}(d) + UU^T$$
+```math
+d = \text{softplus}(\text{diag}(\bar u) + \lambda)
+```
 
-Where:
-- d is learned per-head diagonal scaling
-- U is low-rank factor (n × r)
+```math
+U = \text{lr}(\bar u) \in \mathbb{R}^{n \times r}
+```
 
-**Application:**
+`apply` is two matvecs plus a diagonal scale:
 
-$$Pr = d \odot r + U(U^T r)$$
+```math
+P(r) = d \odot r + U (U^T r)
+```
 
-Cost: O(nr) instead of O(n²) for full P.
+### `Cccp`
 
-### Convergence Analysis
+Concave-Convex Procedure. Maintains Tyler's M-estimator direction
+estimates and refines them through fixed-point iteration:
 
-For system (K + λI)α = V:
+```math
+\Sigma_{t+1} = \frac{n}{r} \sum_i \frac{k_i k_i^T}{k_i^T \Sigma_t k_i}
+```
 
-- Without preconditioning: convergence depends on condition number κ(K + λI)
-- With preconditioning: effective condition number κ(P(K + λI))
+`apply` evaluates `P(r) = \Sigma^{-1} r` by a Cholesky factor. Most
+expensive preconditioner; best convergence on ill-conditioned
+kernels.
 
-The learned preconditioner adapts to the data distribution.
+## 6. Convergence analysis
 
-## 4. Conditioning Analysis
+For the regularised system `(K + lam I) alpha = v`:
 
-### Condition Number
+- Without preconditioning, the convergence rate depends on the
+  condition number `kappa(K + lam I)`. Adding `lam I` shifts every
+  eigenvalue by `lam`, so `kappa(K + lam I) <= kappa(K)` and the
+  matrix is guaranteed invertible when `lam > 0`.
+- With preconditioning, the effective condition number is
+  `kappa(P (K + lam I))`. The learned preconditioners approximate
+  `(K + lam I)^{-1}` so `kappa` approaches `1` as `P` improves.
 
-For matrix A, the condition number is:
+The `Solve.history` list lets callers verify the residual decay
+trajectory in tests.
 
-$$\kappa(A) = \frac{\sigma_{\max}(A)}{\sigma_{\min}(A)}$$
+## 7. Gradient flow
 
-High condition number → ill-conditioned → slow iterative convergence.
-
-### Effect of Regularization
-
-Adding λI to K:
-
-$$\kappa(K + \lambda I) < \kappa(K)$$
-
-Because eigenvalues shift: σ_i(K + λI) = σ_i(K) + λ
-
-### Effect of Preconditioning
-
-Ideal preconditioner P = (K + λI)⁻¹ gives:
-
-$$\kappa(P(K + \lambda I)) = \kappa(I) = 1$$
-
-Our learned P approximates this ideal.
-
-## 5. Gradient Flow
-
-### Differentiability of Iterative Solve
-
-The unrolled Richardson iteration is differentiable:
-
-$$\frac{\partial \alpha_T}{\partial \theta} = \sum_{t=0}^{T-1} \frac{\partial \alpha_{t+1}}{\partial \alpha_t} \cdots \frac{\partial \alpha_1}{\partial \theta}$$
-
-Where θ includes kernel parameters and preconditioner weights.
-
-### Gradient Stability
-
-Potential issues:
-- Vanishing gradients for many iterations
-- Exploding gradients for ill-conditioned K
+PCG is unrolled; gradients flow through every intermediate
+`apply` and `op` call. There is no custom `torch.autograd.Function`;
+the existing `torch.*` ops give full differentiability.
 
 Mitigations:
-- Limit iterations (default: 10)
-- Clip α values during iteration
-- Use learned preconditioner for better conditioning
 
-## 6. Computational Complexity
+- `BOUND = 1e6` clamping prevents gradient overflow.
+- The direct-solve fallback only runs on `not converged and finite`;
+  an infinite residual aborts the forward pass with `finite()`
+  raising `ValueError`.
+- The `Fast` preconditioner uses `softplus` to keep the diagonal
+  strictly positive, so `1 / diag` is finite everywhere.
 
-| Operation | Standard | Fused XSA+LAKER |
-|-----------|----------|-----------------|
-| Q, K, V projection | O(n·d²) | O(n·d²) |
-| Kernel/Scores | O(n²·d) | O(n²·d) |
-| Solve | O(1) (direct) | O(T·n²·d) |
-| Preconditioner | - | O(T·n·r·d) |
-| **Total** | **O(n·d² + n²·d)** | **O(n·d² + T·n²·d)** |
+## 8. Computational complexity
 
-Where:
-- n = sequence length
-- d = model dimension
-- r = preconditioner rank
-- T = number of iterations
+| Operation | `Standard` | `Xsa` | `Laker` (PCG) |
+|---|---|---|---|
+| Q/K/V projection | `O(n * d^2)` | `O(n * d^2)` | `O(n * d^2)` |
+| Kernel / scores | `O(n^2 * d)` | `O(n^2 * d)` | `O(n^2 * d)` |
+| Solve | `O(n^2 * d)` direct | `O(n^2 * d)` direct | `O(T * n^2 * d)` |
+| Preconditioner | — | — | `O(T * n * r * d)` (`Fast`) |
+| Output projection | `O(n * d^2)` | `O(n * d^2)` | `O(n * d^2)` |
+| **Total** | `O(n * d^2 + n^2 * d)` | `O(n * d^2 + n^2 * d)` | `O(n * d^2 + T * n^2 * d)` |
+
+`T = config.pcg`, default `20`. `r = config.rank`, default `32`.
+
+## 9. Worked example
+
+A `Laker` call with `mode = "subtract"` on a `4`-head,
+`dim = 64` block, `seq_len = 16`, single sample:
+
+1. Project `x` to `q, k, v` via `Qkv`.
+2. Compute `K = exp(cosine(q, k) / temp)` with `temp = 1` and
+   L2-normalised inputs.
+3. Zero the diagonal: `K = zerodiag(K)`. This is the XSA
+   diagonal-removal step.
+4. `lam = softplus(raw_lambda) + eps = 3.0` after init.
+5. `cache = Make(config).build(K, lam, 16)`.
+6. `solve = pcg(K, v, lam, apply=Make(config).apply, ...,
+   iters=20, tol=1e-2)`. With `precond = "fast"` this converges in
+   typically 4-6 iterations for this size.
+7. `alpha = solve.x`; if `not solve.converged` and `finite(alpha)`,
+   fall back to `torch.linalg.solve(K + lam * I, v)`.
+8. `alpha = clamp(alpha, -BOUND, BOUND)`, then `alpha = rms(alpha, eps)`.
+9. XSA step: `alpha = alpha - scale * (alpha * v).sum(-1, keepdim=True) * v`.
+10. Output: `K alpha`, merged across heads, projected through `w_o`.

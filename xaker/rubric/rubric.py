@@ -15,7 +15,7 @@ Total max = 18. Pass threshold = 14 with no dim < 2 (novelty may be 1).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Protocol
+from typing import Dict
 
 
 @dataclass(frozen=True)
@@ -47,21 +47,23 @@ class Rubric:
 
     @property
     def total(self) -> int:
+        """Weighted sum of dimension scores, max 18.
+
+        Returns:
+            Total rubric score.
+        """
         return sum(d.score.value * d.weight for d in self.dims.values())
 
     @property
     def passed(self) -> bool:
+        """Whether the rubric passes (total >= 14 and non-novelty >= 2).
+
+        Returns:
+            ``True`` when the rubric clears all thresholds.
+        """
         if self.total < 14:
             return False
         for d in self.dims.values():
             if d.name != "novelty" and d.score.value < 2:
                 return False
         return True
-
-
-class Grader(Protocol):
-    """Protocol for individual dimension graders."""
-
-    name: str
-
-    def grade(self, repo_root: str) -> Dimension: ...

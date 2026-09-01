@@ -111,26 +111,7 @@ installing XAKER, because the wheel varies by CUDA version.
 
 ## Installation
 
-Pick whichever option fits your setup:
-
-### Option 1 — From PyPI (recommended)
-
-```bash
-pip install xaker
-```
-
-No `git clone`, no build step. Works as soon as a release is
-published.
-
-### Option 2 — Pre-built wheel from GitHub Releases
-
-```bash
-pip install https://github.com/sachncs/xaker/releases/download/v0.4.0/xaker-0.4.0-py3-none-any.whl
-```
-
-Useful if you want a specific version without waiting for PyPI.
-
-### Option 3 — From source (recommended for development)
+From source (recommended for development):
 
 A "virtual environment" is an isolated Python sandbox that keeps this
 package's stuff from interfering with your other Python projects.
@@ -473,13 +454,6 @@ open a public GitHub issue for security problems.
   title = {Exclusive Self Attention},
   author = {Sachin},
   journal = {arXiv preprint arXiv:2603.09078},
-  year = {2026},
-}
-
-@article{laker_paper,
-  title = {Learned Preconditioning for Attention Kernel Regression},
-  author = {Sachin},
-  journal = {arXiv preprint arXiv:2604.25138},
   year = {2026},
 }
 ```

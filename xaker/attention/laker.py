@@ -17,14 +17,14 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Optional, cast
+from typing import Optional
 
 import torch
 from torch import nn
 from torch.nn.functional import softplus
 
 from xaker.config import Config
-from xaker.attention.core import Base, heads, merge, keep
+from xaker.attention.core import Base, keep
 from xaker.attention.kernel import Kernel
 from xaker.attention.ops import rms, zerodiag
 from xaker.attention.xsa import XsaStrategy
@@ -45,6 +45,19 @@ class Laker(Base):
     """
 
     def __init__(self, config: Config) -> None:
+        """Build the kernel, preconditioner, and XSA strategy.
+
+        Args:
+            config: Source :class:`Config`; reads ``dim``, ``heads``,
+                ``headdim``, ``drop``, ``eps``, ``temp``, ``symmetric``,
+                ``normalize``, ``precond``, ``lam``, ``mode``, and
+                ``rank`` (for the ``Fast`` preconditioner).
+
+        Side Effects:
+            Allocates ``self.raw_lambda`` as
+            ``nn.Parameter(torch.tensor(config.lam))`` and
+            ``self.xsa_scale`` as ``nn.Parameter(torch.ones(1))``.
+        """
         super().__init__(config)
         self.kernel_fn = Kernel(
             headdim=self.headdim,
@@ -61,7 +74,11 @@ class Laker(Base):
         self.xsa = XsaStrategy(config, self.xsa_scale)
 
     def init(self) -> None:
-        """Initialize Q/K/V/output projections with a Gaussian."""
+        """Initialize Q/K/V/output projections with a Gaussian.
+
+        Std scales as ``0.02 / sqrt(2)`` so the four projections in
+        each block share the standard Transformer init scaling.
+        """
         std = 0.02 / math.sqrt(2.0)
         for proj in [
             self.qkv_proj.w_q,
@@ -73,7 +90,11 @@ class Laker(Base):
 
     @property
     def lam(self) -> torch.Tensor:
-        """``softplus(raw_lambda) + eps``. Positive scalar."""
+        """``softplus(raw_lambda) + eps``.
+
+        Returns:
+            Positive scalar ridge regulariser.
+        """
         return softplus(self.raw_lambda) + self.config.eps
 
     def attend(
@@ -85,13 +106,25 @@ class Laker(Base):
     ) -> torch.Tensor:
         """Compute fused XSA + LAKER attention per head.
 
+        Args:
+            q: Queries, shape ``(batch, heads, seq_len, headdim)``.
+            k: Keys, same shape as ``q``.
+            v: Values, same shape as ``q``.
+            m: Optional attention mask; when ``None`` the kernel
+                diagonal is zeroed (XSA exclusion).
+
+        Returns:
+            Per-head attention output, shape
+            ``(batch, heads, seq_len, headdim)``.
+
         Steps:
-        1. Compute the exponential kernel matrix.
-        2. Apply external m; if no m, zero the kernel diagonal.
-        3. Build (or reuse) the preconditioner payload.
-        4. Call :func:`pcg`; check convergence.
-        5. Clamp and RMS-normalize.
-        6. Apply XSA strategy's output transform.
+            1. Compute the exponential kernel matrix.
+            2. Apply external ``m``; if no ``m``, zero the kernel
+               diagonal.
+            3. Build (or reuse) the preconditioner payload.
+            4. Call :func:`pcg`; check convergence.
+            5. Clamp and RMS-normalize.
+            6. Apply the XSA strategy's output transform.
         """
         _, _, length, _ = q.shape
         kernel = self.kernel_fn(q, k)

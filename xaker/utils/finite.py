@@ -1,15 +1,14 @@
-"""Standalone finite-value detection and tensor-clamping helpers.
+"""Standalone finite-value detection.
 
-These utilities are exported for callers that want explicit numerical checks.
-The current attention and solver implementations use their own local clamps and
-do not automatically invoke these functions.
+The current attention and solver implementations use their own
+local clamps; this module exposes the finite-check helper for
+external callers that want explicit numerical verification.
 """
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
+
 
 def finite(
     x: torch.Tensor,
@@ -70,57 +69,3 @@ def finite(
         return False
 
     return True
-
-def clamp(
-    x: torch.Tensor,
-    min_val: Optional[float] = None,
-    max_val: Optional[float] = None,
-    name: str = "tensor",  # pylint: disable=unused-argument
-) -> torch.Tensor:
-    """Clamp a tensor to a closed interval.
-
-    A small wrapper over :func:`torch.clamp` that treats
-    ``None`` for either bound as "no bound on that side". When
-    both bounds are ``None`` the function returns ``x`` itself,
-    with no copy. The returned tensor is a fresh tensor whenever
-    at least one bound is supplied.
-
-    The ``name`` argument is accepted for API symmetry with
-    :func:`finite` and is not used inside the function -
-    it exists so callers can swap the two helpers without
-    changing their call sites.
-
-    Args:
-        x: Tensor to clamp.
-        min_val: Lower bound. ``None`` means "no lower bound".
-        max_val: Upper bound. ``None`` means "no upper bound".
-        name: Name for logging. Currently unused; preserved for
-            API symmetry.
-
-    Returns:
-        A tensor of the same shape and dtype as ``x`` with values
-        clipped to ``[min_val, max_val]``. The result shares
-        storage with ``x`` only when no clamp is applied; any
-        actual clamping produces a new tensor.
-
-    Raises:
-        ValueError: If both ``min_val`` and ``max_val`` are
-            supplied and ``min_val > max_val``.
-
-    Example:
-        >>> x = torch.tensor([-1e10, 0.0, 1e10])
-        >>> clamp(x, min_val=-1e6, max_val=1e6)
-        tensor([-1.0000e+06,  0.0000e+00,  1.0000e+06])
-    """
-    if min_val is None and max_val is None:
-        return x
-
-    if min_val is not None and max_val is not None:
-        if min_val > max_val:
-            raise ValueError(f"clamp: min_val ({min_val}) > max_val ({max_val})")
-
-    return torch.clamp(
-        x,
-        min_val if min_val is not None else float("-inf"),
-        max_val if max_val is not None else float("inf"),
-    )

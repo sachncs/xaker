@@ -15,13 +15,32 @@ import xaker.utils.rng
 
 
 def dummy(samples: int, length: int, vocab: int) -> tuple[torch.Tensor, torch.Tensor]:
-    """Generate a synthetic (input, label) pair."""
+    """Generate a synthetic (input, label) pair.
+
+    Args:
+        samples: Number of sequences.
+        length: Sequence length.
+        vocab: Vocabulary size.
+
+    Returns:
+        Tuple ``(x, y)`` where ``y`` is a copy of ``x``. The reversal
+        task trains the model to copy the input.
+    """
     x = torch.randint(0, vocab, (samples, length))
     y = x.clone()
     return x, y
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse CLI flags and run :class:`Trainer` on synthetic data.
+
+    Args:
+        argv: Optional argument vector; ``None`` reads from
+            ``sys.argv``.
+
+    Returns:
+        Process exit code; ``0`` on success.
+    """
     parser = argparse.ArgumentParser(description="Train XAKER model")
     parser.add_argument("--dim", type=int, default=64)
     parser.add_argument("--heads", type=int, default=4)

@@ -77,7 +77,7 @@ class TestXsa:
         assert torch.isfinite(out).all()
 
     def test_xsa_exclusion(self) -> None:
-        """Xsa subtract mode removes projection onto each token's value."""
+        """Xsa subtract mode reduces correlation with each token's value."""
         cfg = Config(dim=64, heads=4, headdim=16, drop=0.0, mode="subtract")
         attn = Xsa(cfg)
         attn.eval()
@@ -92,7 +92,7 @@ class TestXsa:
                 oi = out[:, :, i, :]
                 vi = v[:, :, i, :]
                 cos = torch.nn.functional.cosine_similarity(oi, vi, dim=-1)
-                assert cos.abs().mean().allclose if hasattr(cos.abs().mean(), 'allclose') else True
+                assert cos.abs().mean().item() < 0.5
 
     def test_zero(self, config: Config, sample_input: torch.Tensor) -> None:
         c = Config(dim=64, heads=4, headdim=16, drop=0.0, mode="zero")

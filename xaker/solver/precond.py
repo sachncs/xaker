@@ -46,12 +46,36 @@ class Identity(nn.Module):
     """No preconditioning."""
 
     def __init__(self, config) -> None:
+        """Build an ``Identity`` strategy.
+
+        Args:
+            config: Source :class:`Config` (unused).
+        """
         super().__init__()
 
     def build(self, kernel: torch.Tensor, lam: torch.Tensor, length: int) -> Cache:
+        """Return an empty preconditioner payload.
+
+        Args:
+            kernel: Regularised kernel matrix (unused).
+            lam: Ridge regulariser (unused).
+            length: Sequence length (unused).
+
+        Returns:
+            :class:`Cache` with ``data=None``.
+        """
         return Cache(data=None)
 
     def apply(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
+        """Return ``residual`` unchanged.
+
+        Args:
+            residual: PCG residual.
+            data: Preconditioner payload (unused).
+
+        Returns:
+            ``residual`` unchanged.
+        """
         return residual
 
 
@@ -59,17 +83,44 @@ class Diagonal(nn.Module):
     """Jacobi-style diagonal preconditioner."""
 
     def __init__(self, config) -> None:
+        """Build a learnable diagonal scale.
+
+        Args:
+            config: Source :class:`Config`; reads ``heads`` and ``eps``.
+        """
         super().__init__()
         self.scale = nn.Parameter(torch.ones(1, config.heads, 1))
         self.eps = config.eps
 
     def build(self, kernel: torch.Tensor, lam: torch.Tensor, length: int) -> Cache:
+        """Extract a per-row diagonal scaling.
+
+        Args:
+            kernel: Kernel matrix of shape
+                ``(batch, heads, n, n)``.
+            lam: Ridge regulariser broadcastable to kernel's diagonal.
+            length: Sequence length (unused).
+
+        Returns:
+            :class:`Cache` whose ``data`` is the per-row inverse scale
+            of shape ``(batch, heads, n)``.
+        """
         diag = torch.diagonal(kernel, dim1=-2, dim2=-1)
         out = torch.nn.functional.softplus(diag + lam.squeeze(-1).squeeze(-1))
         out = out * self.scale.abs() + self.eps
         return Cache(data=out)
 
     def apply(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
+        """Apply the diagonal preconditioner.
+
+        Args:
+            residual: PCG residual of shape
+                ``(batch, heads, n, ...)``.
+            data: :class:`Cache` from :meth:`build`.
+
+        Returns:
+            Element-wise scaled residual.
+        """
         return residual * data.data.unsqueeze(-1)
 
 
@@ -77,6 +128,17 @@ class Fast(nn.Module):
     """Low-rank-plus-diagonal preconditioner with step-counter cache."""
 
     def __init__(self, config) -> None:
+        """Build the learnable low-rank factors and scale.
+
+        Args:
+            config: Source :class:`Config`; reads ``heads``, ``rank``,
+                ``eps``, ``freq``, and the maximum supported
+                ``seq_len`` of ``2048``.
+
+        Side Effects:
+            Registers ``self.iter`` as a zero-initialised buffer for
+            step counting and ``self.cache`` for the latest payload.
+        """
         super().__init__()
         if config.rank is None or config.rank <= 0:
             self.register_buffer("lr_base", torch.empty(config.heads, 0, 0))
@@ -125,6 +187,13 @@ class Cccp(nn.Module):
     """CCCP-based angular-sampling preconditioner."""
 
     def __init__(self, config) -> None:
+        """Build a CCCP preconditioner.
+
+        Args:
+            config: Source :class:`Config`; reads ``eps``,
+                ``eps_shrink``, ``gamma``, ``rho``, ``directions``,
+                and ``iters``.
+        """
         super().__init__()
         self.eps = config.eps
         self.eps_shrink = config.eps_shrink
@@ -134,10 +203,15 @@ class Cccp(nn.Module):
         self.iters = config.iters
 
     def samples(self, kernel: torch.Tensor, lam: torch.Tensor) -> torch.Tensor:
-        """Generate ``N_r`` angular samples.
+        """Generate ``N_r`` angular samples from the kernel matrix.
 
-        For k = 1..N_r:
-            z_k ~ N(0, I); u_k = (lambda I + K) z_k; ubar_k = u_k / ||u_k||_2
+        Args:
+            kernel: Kernel matrix of shape
+                ``(batch, heads, n, n)``.
+            lam: Ridge regulariser broadcastable to kernel's diagonal.
+
+        Returns:
+            Angular direction samples used to fit Tyler's M-estimator.
         """
         batch, heads, n, _ = kernel.shape
         device, dtype = kernel.device, kernel.dtype
@@ -152,7 +226,17 @@ class Cccp(nn.Module):
         return torch.stack(out, dim=0)
 
     def step(self, ubar: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
-        """One CCCP fixed-point update for Tyler's M-estimator."""
+        """One CCCP fixed-point update for Tyler's M-estimator.
+
+        Args:
+            ubar: Direction samples of shape ``(N_r, batch, heads, n)``.
+            sigma: Current covariance estimate of shape
+                ``(batch, heads, n, n)``.
+
+        Returns:
+            Updated ``Sigma`` estimate, shape
+            ``(batch, heads, n, n)``.
+        """
         batch, heads, n, _ = sigma.shape
         device, dtype = sigma.device, sigma.dtype
         sigma_inv = torch.linalg.inv(sigma)

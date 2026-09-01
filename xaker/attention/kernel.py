@@ -15,7 +15,6 @@ from typing import cast
 
 import torch
 from torch import nn
-import torch.nn.functional
 
 class Kernel(nn.Module):
     """Exponential attention kernel used by ``Laker``.
