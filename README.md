@@ -1,6 +1,6 @@
 <p align="center">
   <h1 align="center">xaker</h1>
-  <p align="center">Exclusive Self Attention for Transformer models.</p>
+  <p align="center">Fused Exclusive Self Attention and Kernel Ridge Regression for Transformer models.</p>
   <p align="center">
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
     <a href="https://github.com/sachncs/xaker/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/xaker/ci.yml?branch=master" alt="CI"></a>
@@ -15,59 +15,80 @@
 
 ## Overview
 
-xaker is a Python library that implements Exclusive Self Attention
-(XSA) for Transformer models, with a flagship fused variant that
-combines the XSA self-exclusion step with a learnable exponential
-kernel and a Preconditioned Conjugate Gradient solve.
+xaker is an open-source Python library that fuses **Exclusive Self
+Attention (XSA)** with **kernel ridge regression** for Transformer
+models, forming a single attention module solved by Preconditioned
+Conjugate Gradient. The library is the open-source companion to a
+paper-in-progress that quantifies the trade-offs of this fusion
+relative to vanilla scaled dot-product attention.
 
-The reference paper is [arXiv:2603.09078](https://arxiv.org/abs/2603.09078);
-the implementation is the spec, and the tests are the contract.
-
-Three attention modules ship in one polymorphic dispatch:
+Three attention variants ship in one polymorphic dispatch:
 
 - `Standard` -- Vaswani-style scaled dot-product attention. Baseline.
 - `Xsa` -- Exclusive Self Attention. Removes each token's
   self-projection so tokens can only aggregate context.
-- `Fused` -- The flagship: XSA + kernel attention solved by PCG.
+- `Fused` -- The flagship: XSA + kernel ridge regression solved by
+  PCG with a configurable preconditioner.
 
----
+The `Fused` block implements the XSA projection-removal step plus
+the LAKER-style kernel ridge regression formulation, addressing two
+known failure modes of vanilla attention:
 
-## Why xaker
-
-Standard Transformer attention suffers from two failure modes:
-
-- **Self-bias** -- every token's output includes a contribution from
-  its own value vector.
+- **Self-bias** -- every token's output includes a contribution
+  from its own value vector.
 - **Spectral collapse** -- the kernel matrix becomes ill-conditioned
   on long sequences, which slows iterative solvers.
 
-xaker addresses both with a single module: the `Fused` attention
-block. The XSA projection-removal step kills self-bias deterministically;
-the kernel ridge regression with PCG solve keeps the gradient signal
-clean even when the kernel matrix is poorly conditioned.
+---
 
-```python
-import torch
-from xaker import Config, Model
+## Results
 
-config = Config(dim=512, heads=8, kernel="exp", mode="subtract", precond="fast")
-model = Model(config, num_layers=6, vocab_size=32000, max_seq_len=512, attention_type="fused")
-logits = model(torch.randint(0, 32000, (2, 128)))
-```
+The flagship claim of this library is that the kernel ridge
+regression formulation with XSA diagonal removal produces a
+**3-12x lower condition number** than the equivalent softmax score
+matrix across sequence lengths (16 to 128), while remaining
+competitive on training tasks. Reproducible numbers from
+`paper_runs/scaling.json` and `paper_runs/trained_compare.json`.
+
+### Condition number (lower is better)
+
+| Length | Standard (softmax) | Fused (kernel + XSA) | Fused / Standard |
+|--------|--------------------|----------------------|------------------|
+| 16     | 51,213             | 16,166               | 0.32x            |
+| 32     | 244,066            | 38,448               | 0.16x            |
+| 64     | 1,123,455          | 142,089              | 0.13x            |
+| 128    | 4,892,103          | 421,567              | 0.09x            |
+
+### Trained comparison (copy task, length=16, 2-layer Transformer)
+
+| Kind     | Final train loss | Final val loss | Val accuracy |
+|----------|------------------|----------------|--------------|
+| Standard | 0.0066           | 0.0068         | 100%         |
+| Xsa      | 0.0066           | 0.0068         | 100%         |
+| Fused    | 0.0066           | 0.0071         | 100%         |
+
+All three variants reach 100% validation accuracy on the copy task;
+the fused-XSA variant delivers the condition-number improvement at
+negligible accuracy cost. See `RESULTS.md` for the full breakdown
+including preconditioner ablation, self-bias, and wall-clock
+benchmarks.
 
 ---
 
 ## Features
 
-- Three attention variants in one polymorphic dispatch (`BLOCK[kind](config)`)
+- Three attention variants in one polymorphic dispatch
+  (`BLOCK[kind](config)`)
 - Four kernel functions: `exp`, `rbf`, `linear`, `cosine`
 - Three XSA modes: `subtract`, `zero`, `mask`
 - Four preconditioners: `identity`, `diagonal`, `fast`, `cccp`
 - PCG solver with direct-solve fallback (`xaker.solver.cg`)
 - Typed bench driver emitting schema-stable JSON (`xaker.bench`)
 - Paper-worthiness rubric enforced in CI (`xaker-validate`)
-- Four CLI entry points: `xaker-train`, `xaker-eval`, `xaker-bench`, `xaker-validate`
-- Single-word public API: no `_private` names, no `import x as y` aliases, no `apply_kernel_operator`-style shims
+- Four CLI entry points: `xaker-train`, `xaker-eval`,
+  `xaker-bench`, `xaker-validate`
+- Single-word public API: no `_private` names, no `import x as y`
+  aliases, no multi-word shims
 - 276 tests, 85% coverage, 18/18 rubric score
 
 ---
@@ -87,8 +108,8 @@ pip install torch --index-url https://download.pytorch.org/whl/cu121   # pick yo
 ```
 
 The dot in `.[dev]` is intentional: it means "install this package
-and also the dev extras." The square brackets are part of the command,
-not punctuation.
+and also the dev extras." The square brackets are part of the
+command, not punctuation.
 
 ---
 
@@ -172,7 +193,7 @@ Two dataclasses, no environment variables.
 
 ---
 
-## Architecture in one paragraph
+## Architecture
 
 Three single-entry factories replace the `if mode ==` chains that
 v1 attention code used to scatter through the package:
@@ -240,6 +261,7 @@ xaker/
 ├── examples/
 │   ├── run_paper_experiment.py
 │   └── specs/                 Five YAML experiment specs
+├── paper_runs/                Reproducible benchmark JSON outputs
 ├── docs/                      Architecture, math, design, FAQ, rubric
 └── .github/workflows/         CI pipeline
 ```
@@ -256,7 +278,7 @@ pytest tests/ --cov=xaker --cov-fail-under=85                 # with coverage ga
 pylint xaker/ --rcfile=pyproject.toml                          # lint
 mypy xaker/ --ignore-missing-imports                          # type check
 xaker-validate --min-total 14                                 # paper rubric
-python -m build                                               # build distribution
+python -m examples.run_paper_experiment --spec examples/specs/baseline.yaml   # reproduce benchmark
 ```
 
 Current state: 276 tests passing, 85.41% coverage, 18/18 rubric.
@@ -272,6 +294,7 @@ Current state: 276 tests passing, 85.41% coverage, 18/18 rubric.
 - [Math](docs/math.md) -- derivations
 - [Design Decisions](docs/design_decisions.md) -- why the code looks this way
 - [Paper Rubric](docs/paper_rubric.md) -- the six-dimension grading rubric
+- [Results](RESULTS.md) -- benchmark numbers and ablation tables
 - [Limitations](docs/limitations.md) -- where xaker won't help
 
 ---
@@ -293,7 +316,7 @@ open a public GitHub issue for security problems.
 
 ```bibtex
 @software{xaker,
-  title = {xaker: Exclusive Self Attention for Transformer Models},
+  title = {xaker: Fused Exclusive Self Attention and Kernel Ridge Regression},
   author = {sachin},
   year = {2026},
   url = {https://github.com/sachncs/xaker},

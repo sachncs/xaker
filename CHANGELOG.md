@@ -13,20 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `xaker/attention/laker.py` to `xaker/attention/fused.py`; the
   `BLOCK["fused"]` dispatch key was already `fused` and is unchanged.
   Migration: `from xaker import Fused` replaces `from xaker import Laker`.
-- **README rewritten** to a professional format with the lowercase
-  `xaker` brand. Removed emojis, removed the "convexfolio template"
-  framing, replaced "XAKER" with "xaker" throughout, dropped stale
-  Glossary references, expanded the description section, removed the
-  "Who is this for?" section, dropped the duplicated "First run -- CLI"
-  and "First run -- Python" subsections in favour of a single
-  "Quick start".
-- **Project description** (GitHub sidebar) updated to "Exclusive
-  Self Attention (XSA) for Transformer models. Three attention
-  variants (Standard, Xsa, Fused), four kernels (exp, rbf, linear,
-  cosine), four preconditioners, polymorphic dispatch with a
-  single-word API."
+- **README rewritten** to position xaker as the open-source
+  companion to a paper-in-progress on fused XSA + kernel ridge
+  regression. Added a "Results" section with reproducible numbers
+  from `paper_runs/*.json`: kernel condition number 3-12x lower than
+  standard softmax; trained comparison across all three attention
+  variants on a copy task reaching 100% accuracy.
+- **Added `RESULTS.md`** documenting the benchmark methodology,
+  condition-number measurements, preconditioner ablation, and trained
+  comparison.
+- **Project description** (GitHub sidebar) updated to
+  "Exclusive Self Attention (XSA) for Transformer models. Three
+  attention variants (Standard, Xsa, Fused), four kernels (exp,
+  rbf, linear, cosine), four preconditioners, polymorphic dispatch
+  with a single-word API."
 - All `docs/` files updated to drop `Laker` references in favour of
   `Fused`.
+- **`paper_runs/`** populated with reproducible benchmark JSON:
+  `baseline.json`, `scaling.json`, `trained_compare.json`,
+  `ablation_identity.json`.
 
 ### Migration
 
