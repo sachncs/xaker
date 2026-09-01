@@ -1,4 +1,9 @@
-"""Fused XSA + LAKER attention.
+"""Fused XSA + kernel attention with PCG.
+
+The flagship :class:`Fused` block: it composes the XSA self-exclusion
+mechanism with a learnable kernel and a Preconditioned Conjugate
+Gradient solve over the regularised kernel ridge-regression system.
+Two scientific ideas in one module.
 
 Pipeline (per head):
 
@@ -10,7 +15,7 @@ Pipeline (per head):
 6. Build or reuse the configured preconditioner.
 7. Apply :func:`pcg` to ``(K + lambda I) alpha = V``. Check convergence.
 8. Clamp alpha to ``[-BOUND, BOUND]`` and RMS-normalize.
-9. If mode is ``subtract``, subtract a scaled projection of alpha onto V.
+9. Apply the XSA strategy's output transform.
 """
 
 from __future__ import annotations
@@ -34,8 +39,12 @@ from xaker.solver.precond import BOUND, Make
 logger = logging.getLogger(__name__)
 
 
-class Laker(Base):
-    """Fused XSA + LAKER attention (v2).
+class Fused(Base):
+    """Fused XSA + kernel attention with PCG.
+
+    Combines the XSA self-exclusion mechanism with a learnable
+    exponential kernel and a Preconditioned Conjugate Gradient solve
+    over ``(K + lambda I) alpha = V``.
 
     Attributes:
         kernel_fn: :class:`Kernel` producing the exponential kernel.
@@ -69,7 +78,7 @@ class Laker(Base):
         )
         self.precon = Make(config)
         self.raw_lambda = nn.Parameter(torch.tensor(config.lam))
-        # Always trainable (per Phase J decision).
+        # Always trainable (single parameter shape across modes).
         self.xsa_scale = nn.Parameter(torch.ones(1))
         self.xsa = XsaStrategy(config, self.xsa_scale)
 
@@ -104,7 +113,7 @@ class Laker(Base):
         v: torch.Tensor,
         m: Optional[torch.Tensor],
     ) -> torch.Tensor:
-        """Compute fused XSA + LAKER attention per head.
+        """Compute fused XSA + kernel attention per head.
 
         Args:
             q: Queries, shape ``(batch, heads, seq_len, headdim)``.

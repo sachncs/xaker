@@ -55,7 +55,7 @@ Training hyperparameters.
 |---|---|
 | `Standard` | Vaswani-style scaled dot-product attention |
 | `Xsa` | Exclusive Self Attention with strategy dispatch |
-| `Laker` | Fused XSA + LAKER (flagship), PCG-solved |
+| `Fused` | Fused XSA + kernel attention (flagship), PCG-solved |
 | `Kernel` | Stateful exponential attention kernel |
 | `Projection`, `Zero`, `Mask` | XSA strategies |
 | `BLOCK` | Polymorphic registry `{standard, xsa, fused} -> class` |
@@ -130,7 +130,7 @@ from xaker import (
     seed, snapshot, restore, finite, Ctx, toctx,
 )
 
-# Train a small fused (Laker) Transformer
+# Train a small fused-xsa Transformer
 seed(0)
 cfg = Config(dim=64, heads=4, kernel="exp", mode="subtract", precond="fast")
 model = Model(cfg, num_layers=2, vocab_size=100, max_seq_len=32, attention_type="fused")
@@ -141,6 +141,6 @@ loss = ce(logits, x, smoothing=0.1)
 
 # Polymorphic dispatch by kind
 attn = BLOCK["xsa"](cfg)        # Xsa
-attn = BLOCK["fused"](cfg)      # Laker
+attn = BLOCK["fused"](cfg)      # Fused
 attn = BLOCK["standard"](cfg)   # Standard
 ```

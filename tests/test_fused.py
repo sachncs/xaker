@@ -1,14 +1,14 @@
-"""Tests for :class:`Laker` and its v2 kernel/preconditioner stack.
+"""Tests for :class:`Fused` and its kernel/preconditioner stack.
 
-Covers the v2 modules in detail:
-- :class:`Kernel` — learnable-temperature kernel used by :class:`Laker`.
-- :class:`Laker` — fused XSA + LAKER attention.
+Covers the fused-XSA modules in detail:
+- :class:`Kernel` — learnable-temperature kernel used by :class:`Fused`.
+- :class:`Fused` — fused XSA + kernel attention with PCG.
 - :class:`Precond` factory — :func:`Make` returns the configured strategy
   (``Identity``, ``Diagonal``, ``Fast``, ``Cccp``).
 - :func:`compute_kernel_matrix` from :mod:`xaker.attention.func`.
 
 Verified invariants:
-- :class:`Laker` is deterministic in ``eval()`` mode.
+- :class:`Fused` is deterministic in ``eval()`` mode.
 - ``lam`` is strictly positive (softplus-parameterised).
 - :func:`zerodiag` returns a kernel whose main diagonal is zero.
 - :class:`Make(config)` returns a concrete ``PrecondProto`` instance for each
@@ -21,7 +21,7 @@ import pytest
 import torch
 
 from xaker.config import Config
-from xaker.attention.laker import Laker
+from xaker.attention.fused import Fused
 from xaker.attention.kernel import Kernel
 from xaker.attention.func import kernel as compute_kernel_matrix
 from xaker.attention.ops import zerodiag, rms
@@ -79,25 +79,25 @@ class TestKernel:
         assert not isinstance(k.logtemp, torch.nn.Parameter)
 
 
-class TestLaker:
-    """Tests for :class:`Laker`."""
+class TestFused:
+    """Tests for :class:`Fused`."""
 
     def test_shape(self, config: Config) -> None:
-        attn = Laker(config)
+        attn = Fused(config)
         attn.eval()
         x = torch.randn(2, 32, config.dim)
         out = attn(x)
         assert out.shape == x.shape
 
     def test_finite(self, config: Config) -> None:
-        attn = Laker(config)
+        attn = Fused(config)
         attn.eval()
         x = torch.randn(2, 32, config.dim)
         out = attn(x)
         assert torch.isfinite(out).all()
 
     def test_grad(self, config: Config) -> None:
-        attn = Laker(config)
+        attn = Fused(config)
         attn.train()
         x = torch.randn(2, 32, config.dim, requires_grad=True)
         out = attn(x)
@@ -106,14 +106,14 @@ class TestLaker:
         assert torch.isfinite(x.grad).all()
 
     def test_lam_positive(self, config: Config) -> None:
-        attn = Laker(config)
+        attn = Fused(config)
         assert attn.lam.item() > 0
 
     def test_xsa_scale_param(self, config: Config) -> None:
         """xsa_scale is always nn.Parameter regardless of mode."""
         for mode in ["subtract", "zero", "mask"]:
             c = Config(dim=64, heads=4, mode=mode)
-            attn = Laker(c)
+            attn = Fused(c)
             assert isinstance(attn.xsa_scale, torch.nn.Parameter), (
                 f"xsa_scale not nn.Parameter for mode={mode}"
             )
@@ -131,7 +131,7 @@ class TestLaker:
         assert torch.isfinite(normed).all()
 
     def test_deterministic(self, config: Config) -> None:
-        attn = Laker(config)
+        attn = Fused(config)
         attn.eval()
         x = torch.randn(2, 32, config.dim)
         with torch.no_grad():
@@ -140,7 +140,7 @@ class TestLaker:
         assert torch.allclose(out1, out2)
 
     def test_mask(self, config: Config) -> None:
-        attn = Laker(config)
+        attn = Fused(config)
         attn.eval()
         x = torch.randn(2, 16, config.dim)
         mask = torch.triu(torch.ones(16, 16), diagonal=1).bool()

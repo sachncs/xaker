@@ -1,6 +1,6 @@
 """Free-function helpers for attention modules.
 
-These are stateless single-purpose functions used by :class:`Laker` and
+These are stateless single-purpose functions used by :class:`Fused` and
 :class:`Xsa`. They live outside any class to keep the attention modules
 focused on module-level concerns.
 """

@@ -1,19 +1,19 @@
-"""Attention module for XAKER.
+"""Attention module for xaker.
 
 Public surface for the attention subpackage. Provides:
 
 * :class:`Standard` — Vaswani-style scaled dot-product baseline.
 * :class:`Xsa` — XSA, which removes self-aligned components from outputs.
-* :class:`Laker` — v2 module combining XSA-related transformations with
-  preconditioned kernel-regression inverse mixing.
-* :class:`Kernel` — exponential attention kernel used by :class:`Laker`.
+* :class:`Fused` — flagship block combining XSA with kernel
+  attention solved by Preconditioned Conjugate Gradient.
+* :class:`Kernel` — exponential attention kernel used by :class:`Fused`.
 
-Shared utilities (:class:`Base`, :class:`Qkv`, mask helpers,
-``reshape_*``) live in :mod:`xaker.attention.core`; kernel implementations
-live in :mod:`xaker.attention.kernel` and :mod:`xaker.attention.func`.
+Shared utilities (:class:`Base`, :class:`Qkv`, mask helpers) live
+in :mod:`xaker.attention.core`; kernel implementations live in
+:mod:`xaker.attention.kernel` and :mod:`xaker.attention.func`.
 
 The polymorphism registry lives here: ``BLOCK = {"standard": Standard,
-"xsa": Xsa, "fused": Laker}`` maps a kind string to the concrete class.
+"xsa": Xsa, "fused": Fused}`` maps a kind string to the concrete class.
 Adding a new attention variant is one class + one entry in ``BLOCK``.
 """
 
@@ -38,19 +38,19 @@ from xaker.attention.xsa import (
     XsaStrategy,
     Zero,
 )
-from xaker.attention.laker import Laker
+from xaker.attention.fused import Fused
 
 BLOCK = {
     "standard": Standard,
     "xsa": Xsa,
-    "fused": Laker,
+    "fused": Fused,
 }
 
 __all__ = [
     "Base",
     "BLOCK",
+    "Fused",
     "Kernel",
-    "Laker",
     "Mask",
     "Projection",
     "Qkv",

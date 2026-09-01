@@ -1,8 +1,10 @@
-"""Full encoder Transformer with XSA + LAKER attention.
+"""Full encoder Transformer for xaker.
 
-This module provides :class:`Model`, a configurable
-Transformer encoder built by stacking
-:class:`xaker.model.block.Block`.
+This module provides :class:`Model`, a configurable Transformer
+encoder built by stacking :class:`xaker.model.block.Block`. The
+attention variant per block is selected from :data:`xaker.attention.BLOCK`
+at construction time via the ``attention_type`` argument.
+
 The model can be constructed in two modes:
 
 * **Embedding mode** (when ``vocab_size`` is provided) - a token

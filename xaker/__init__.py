@@ -1,11 +1,14 @@
-"""Public API for XAKER attention, solver, model, training, and rubric modules.
+"""Public API for xaker attention, solver, model, training, and rubric modules.
+
+xaker is a Python library that implements Exclusive Self Attention
+(XSA) for Transformer models, with a polymorphic strategy-based
+dispatch and a single-word public API.
 
 Public surface:
 - :class:`Config` — single-word dataclass for attention/solver params.
-- :class:`Standard`, :class:`Xsa`, :class:`Laker`, :class:`Kernel` — attention
-  modules; :class:`Projection`, :class:`Zero`, :class:`Mask` — XSA strategies.
-- :class:`Precon` (renamed from Precond to avoid aliasing; see
-  :func:`xaker.solver.precond.Make`).
+- :class:`Standard`, :class:`Xsa`, :class:`Fused`, :class:`Kernel` —
+  attention modules; :class:`Projection`, :class:`Zero`,
+  :class:`Mask` — XSA strategies.
 - :class:`Block`, :class:`Mlp`, :class:`Model` — Transformer building blocks.
 - :class:`Trainer`, :class:`Fit` — training utilities.
 - :func:`pcg`, :func:`richardson`, :class:`Solve` — iterative solvers.
@@ -17,10 +20,10 @@ Public surface:
 - :class:`Rubric`, :class:`Score`, :class:`Dimension`, :func:`grade` — paper rubric.
 
 Example:
-    >>> from xaker import Laker, Config
+    >>> from xaker import Fused, Config
     >>> import torch
     >>> cfg = Config(dim=64, heads=4)
-    >>> attn = Laker(cfg)
+    >>> attn = Fused(cfg)
     >>> out = attn(torch.randn(2, 8, 64))
 """
 
@@ -28,8 +31,8 @@ from xaker.config import Config
 from xaker.attention import (
     BLOCK,
     Base,
+    Fused,
     Kernel,
-    Laker,
     Mask,
     Projection,
     Qkv,
@@ -71,9 +74,9 @@ __all__ = [
     "Diagonal",
     "Fast",
     "Fit",
+    "Fused",
     "Identity",
     "Kernel",
-    "Laker",
     "Make",
     "Mask",
     "Mlp",

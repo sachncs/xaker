@@ -18,10 +18,10 @@ pip install -e '.[dev]'
 
 ```python
 import torch
-from xaker import Laker, Config
+from xaker import Fused, Config
 
 cfg = Config(dim=512, heads=8, drop=0.1)
-attn = Laker(cfg)
+attn = Fused(cfg)
 x = torch.randn(2, 128, 512)
 print(attn(x).shape)  # (2, 128, 512)
 ```
@@ -85,10 +85,10 @@ smoke test.
 
 ```bash
 python3 -c "
-from xaker import Laker, Xsa, Standard, Config, BLOCK, BLOCK as b
+from xaker import Fused, Xsa, Standard, Config, BLOCK
 cfg = Config(dim=64, heads=4)
 print('BLOCK keys:', sorted(BLOCK.keys()))
-print('Laker:', BLOCK['fused'](cfg))
+print('Fused:', BLOCK['fused'](cfg))
 print('Xsa:', BLOCK['xsa'](cfg))
 print('Standard:', BLOCK['standard'](cfg))
 "

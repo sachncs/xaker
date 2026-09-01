@@ -2,16 +2,17 @@
 
 ## Why is the package called `xaker`?
 
-`xaker` fuses the two scientific contributions — XSA (Exclusive Self
-Attention) and LAKER (Learned Preconditioning for Attention Kernel
-Regression) — into one searchable brand and a single-word name that
-fits the project's naming convention.
+`xaker` (e**X**clusive self-**A**ttention **KER**nel ridge) is a
+single searchable brand for the library's flagship contribution: an
+Exclusive Self Attention (XSA) block combined with a kernel ridge
+regression formulation solved by Preconditioned Conjugate Gradient.
+The name is one word and fits the project's naming convention.
 
 ## What happened to the v1 attention classes?
 
 `LakerAttentionLayer`, `KernelFunction`, `LearnedPreconditioner`,
 `KernelAttentionRegression`, `FusedXSALAKERAttention` were deprecated
-in 0.3 and hard-deleted in 0.4. The v2 `Laker` module replaces them
+in 0.3 and hard-deleted in 0.4. The v2 `Fused` module replaces them
 with a single polymorphic strategy.
 
 ## Why does `pcg` return a `Solve` dataclass?
@@ -19,10 +20,10 @@ with a single polymorphic strategy.
 `Solve(x, iters, converged, res, history)` exposes everything the
 caller needs to decide whether to trust the iterative result, fall
 back to a direct solver, or log the residual decay trajectory.
-Callers can write `Laker.attend` against this contract without
+Callers can write `Fused.attend` against this contract without
 needing to introspect private state.
 
-## Why does `Laker` always allocate `xsa_scale` as `nn.Parameter`?
+## Why does `Fused` always allocate `xsa_scale` as `nn.Parameter`?
 
 Even for `mode="zero"` (which doesn't use it), the parameter is
 allocated. This keeps `state_dict` keys stable across modes and
@@ -38,7 +39,7 @@ from xaker import Config, BLOCK, Make, XsaStrategy
 
 cfg = Config(dim=64, heads=4, precond="fast")
 
-attn = BLOCK[cfg.attention or "fused"](cfg)      # Standard / Xsa / Laker
+attn = BLOCK[cfg.attention or "fused"](cfg)      # Standard / Xsa / Fused
 precond_apply = Make(cfg).apply                 # preconditioner
 strategy = XsaStrategy(cfg, scale=...)          # Projection / Zero / Mask
 ```

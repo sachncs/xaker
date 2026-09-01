@@ -1,4 +1,4 @@
-"""Transformer block with XSA + LAKER attention.
+"""Transformer block for xaker.
 
 The block uses the pre-norm residual pattern:
 
