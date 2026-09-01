@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
-import sys
-
 
 def test_driver_imports() -> None:
     """examples/run_paper_experiment is importable."""

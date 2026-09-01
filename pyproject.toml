@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "xaker"
 version = "0.4.0"
-description = "Fused Exclusive Self Attention (XSA) and LAKER-style Kernel Attention"
+description = "Exclusive Self Attention (XSA) for Transformer models"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
@@ -44,14 +44,6 @@ dev = [
     "pylint>=2.17.0",
     "black>=23.0.0",
     "mypy>=1.0.0",
-]
-bench = [
-    "matplotlib>=3.5.0",
-    "pandas>=1.4.0",
-    "pyyaml>=6.0",
-]
-train = [
-    "tqdm>=4.65.0",
 ]
 paper = [
     "matplotlib>=3.5.0",

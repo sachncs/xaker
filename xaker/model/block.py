@@ -18,14 +18,9 @@ from typing import Literal, Optional
 
 import torch
 from torch import nn
-import torch.nn.functional
 
 from xaker.config import Config
-from xaker.attention import (
-    Xsa,
-    Laker,
-    Standard,
-)
+from xaker.attention import BLOCK
 
 class Mlp(nn.Module):
     """Position-wise feed-forward Mlp.
@@ -200,9 +195,8 @@ class Block(nn.Module):
         self.norm1 = nn.LayerNorm(config.dim, eps=config.eps)
         self.norm2 = nn.LayerNorm(config.dim, eps=config.eps)
 
-        from xaker.attention import BLOCK
-        # Legacy aliases: "kernel" and "fused" both select Laker; "fused_v2" is the canonical form.
-        kind_map = {"fused_v2": "fused", "fused": "fused", "kernel": "fused"}
+        # Aliases: "kernel" and "fused_v2" both select the fused (Laker) block.
+        kind_map = {"fused_v2": "fused", "kernel": "fused"}
         kind = kind_map.get(attention_type, attention_type)
         if kind not in BLOCK:
             raise ValueError(f"Unknown attention type: {attention_type}")

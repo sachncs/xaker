@@ -6,11 +6,10 @@ evidence text describing what was found.
 
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
-from xaker.rubric.rubric import Dimension, Score
+from xaker.rubric.rubric import Dimension, Rubric, Score
 
 
 def _grep_count(repo_root: Path, pattern: str, paths: list[str]) -> int:
@@ -120,7 +119,6 @@ GRADERS = {
 
 def grade(repo_root: str = ".") -> "Rubric":
     """Run all six graders and assemble a :class:`Rubric`."""
-    from xaker.rubric.rubric import Rubric
     root = Path(repo_root).resolve()
     dims = {name: g(root) for name, g in GRADERS.items()}
     return Rubric(dims=dims)

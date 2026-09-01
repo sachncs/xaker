@@ -95,7 +95,16 @@ def tick(
 ) -> tuple[float, float, float, float]:
     """Measure forward and forward+backward latency.
 
-    Returns ``(forward_ms_mean, forward_ms_std, backward_ms_mean, backward_ms_std)``.
+    Args:
+        module: Module to benchmark. Moved to ``ctx`` device and dtype.
+        x: Input tensor. Moved to ``ctx`` device and dtype.
+        warmup: Number of untimed forward passes before measurement.
+        runs: Number of timed forward (and forward+backward) passes.
+        ctx: Execution context carrying device and dtype.
+
+    Returns:
+        Tuple ``(forward_ms_mean, forward_ms_std, backward_ms_mean,
+        backward_ms_std)`` in milliseconds.
     """
     module = module.to(ctx.device).to(ctx.dtype)
     x = x.to(ctx.device).to(ctx.dtype)
@@ -139,7 +148,16 @@ def tick(
 
 
 def peak(module: nn.Module, x: torch.Tensor, *, ctx: Ctx) -> float:
-    """Measure peak GPU memory in MiB (returns 0 if no CUDA)."""
+    """Measure peak GPU memory in MiB.
+
+    Args:
+        module: Module to benchmark.
+        x: Input tensor.
+        ctx: Execution context.
+
+    Returns:
+        Peak GPU memory in MiB. ``0.0`` when CUDA is unavailable.
+    """
     module = module.to(ctx.device).to(ctx.dtype)
     x = x.to(ctx.device).to(ctx.dtype)
     if torch.cuda.is_available():
@@ -156,7 +174,14 @@ def converge(
 ) -> tuple[bool, float, float]:
     """Measure PCG convergence on the Laker attention kernel.
 
-    Returns ``(converged, iters_mean, iters_std)``.
+    Args:
+        attn: Attention module to probe.
+        x: Input tensor.
+        ctx: Execution context.
+        iters: Iteration budget reported as the mean.
+
+    Returns:
+        Tuple ``(converged, iters_mean, iters_std)``.
     """
     attn = attn.to(ctx.device).to(ctx.dtype)
     x = x.to(ctx.device).to(ctx.dtype)
@@ -166,7 +191,17 @@ def converge(
 
 
 def run(spec: Spec, *, ctx: Optional[Ctx] = None) -> Result:
-    """Run the benchmark suite. Returns a populated :class:`Result`."""
+    """Run the benchmark suite.
+
+    Args:
+        spec: Benchmark specification.
+        ctx: Execution context. ``None`` falls back to a CPU
+            ``float32`` :class:`Ctx`.
+
+    Returns:
+        Populated :class:`Result` with environment block and per-
+        (kind, length) :class:`Metrics`.
+    """
     ctx = ctx or Ctx()
 
     device_name = (
@@ -225,9 +260,13 @@ def run(spec: Spec, *, ctx: Optional[Ctx] = None) -> Result:
 def write(result: Result, path: str | Path) -> None:
     """Persist ``result`` as JSON with schema validation.
 
-    If ``path`` is a directory, writes ``path/rubric.json`` and
-    ``path/summary.md``. If it's a file path, writes a single JSON
-    file there.
+    Args:
+        result: Bench result to serialize.
+        path: Output path. A directory writes ``rubric.json`` and
+            ``summary.md``; a file path writes a single JSON file.
+
+    Side Effects:
+        Creates parent directories as needed.
     """
     d = {
         "schema_version": 1,

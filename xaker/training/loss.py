@@ -10,7 +10,7 @@ of the training loop relies on.
 from __future__ import annotations
 
 import torch
-import torch.nn.functional
+
 
 def ce(
     logits: torch.Tensor,

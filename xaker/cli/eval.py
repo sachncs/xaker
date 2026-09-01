@@ -13,6 +13,15 @@ import xaker.utils.rng
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Load a checkpoint and run a smoke forward pass.
+
+    Args:
+        argv: Optional argument vector; ``None`` reads from
+            ``sys.argv``.
+
+    Returns:
+        Process exit code; ``0`` on success.
+    """
     parser = argparse.ArgumentParser(description="Evaluate XAKER checkpoint")
     parser.add_argument("--checkpoint", required=True, help="Path to model checkpoint")
     parser.add_argument("--length", type=int, default=16)

@@ -42,5 +42,13 @@ class Ctx:
 
 
 def toctx(t: torch.Tensor, ctx: Ctx) -> torch.Tensor:
-    """Move ``t`` to the device and dtype of ``ctx``."""
+    """Move ``t`` to the device and dtype of ``ctx``.
+
+    Args:
+        t: Tensor to move.
+        ctx: Target device and dtype.
+
+    Returns:
+        ``t`` on ``ctx.device`` with ``ctx.dtype``.
+    """
     return t.to(device=ctx.device, dtype=ctx.dtype)

@@ -117,12 +117,14 @@ class Trainer:
 
     Determinism:
 
-    * The trainer seeds PyTorch's global RNG during construction, after the
-      supplied model has already been initialized. Seed before model creation
-      when initialization reproducibility is required.
-    * The trainer does not configure deterministic algorithms or cuDNN.
-      cuDNN settings but still cannot guarantee reproducibility for every
-      operation and environment.
+    * The trainer does not seed PyTorch's global RNG. Call
+      :func:`xaker.utils.rng.seed` before constructing both the model
+      and the trainer when initialization reproducibility is required.
+    * The trainer does not configure deterministic algorithms or
+      cuDNN. The :func:`xaker.utils.rng.seed` helper sets
+      ``cudnn.deterministic = True`` and ``cudnn.benchmark = False``,
+      but those settings still cannot guarantee reproducibility for
+      every operation and environment.
 
     Training, evaluation, optimizer, scheduler, and counter state are mutable;
     calls on one trainer instance must be serialized by the caller.
