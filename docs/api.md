@@ -56,9 +56,10 @@ Training hyperparameters.
 | `Standard` | Vaswani-style scaled dot-product attention |
 | `Xsa` | Exclusive Self Attention with strategy dispatch |
 | `Fused` | Fused XSA + kernel attention (flagship), PCG-solved |
+| `Linear` | Linear-complexity attention baseline (Katharopoulos et al., 2020) |
 | `Kernel` | Stateful exponential attention kernel |
 | `Projection`, `Zero`, `Mask` | XSA strategies |
-| `BLOCK` | Polymorphic registry `{standard, xsa, fused} -> class` |
+| `BLOCK` | Polymorphic registry `{standard, xsa, fused, linear} -> class` |
 | `Base` | Abstract base; subclasses override `attend()` |
 | `Qkv` | Bias-free Q/K/V projections |
 
@@ -112,6 +113,29 @@ Training hyperparameters.
 | `run`, `write` | Driver and JSON serializer |
 | `gitsha` | Current git HEAD SHA |
 
+### Ablation runners
+
+| Module | Description |
+|---|---|
+| `xaker.bench.ablate` | Sweep over `kind`, `kernel`, `precond`, or `mode` and emit per-config JSON |
+| `xaker.bench.condition` | Compare kernel matrix condition numbers across lengths |
+| `xaker.bench.copy_task` | End-to-end training comparison on a copy task |
+| `xaker.bench.lra` | Four synthetic LRA-style tasks (copy / reversal / retrieval / addition) |
+| `xaker.bench.wikitext` | WikiText-2 training benchmark (GPU recommended) |
+
+All runners honour the `XAKER_DEVICE` env var (`cpu` / `cuda` /
+`mps`); default is `cpu` because several PCG ops have bugs on MPS.
+
+## Datasets
+
+| Symbol | Description |
+|---|---|
+| `CopyTask` | Synthetic copy task; target = input |
+| `ReversalTask` | Synthetic reversal task; target = reversed input |
+| `WikiText` | WikiText-2 character-level language modelling |
+| `build` | Factory by name |
+| `vocab` | Vocabulary size lookup by dataset name |
+
 ## Rubric
 
 | Symbol | Description |
@@ -143,4 +167,5 @@ loss = ce(logits, x, smoothing=0.1)
 attn = BLOCK["xsa"](cfg)        # Xsa
 attn = BLOCK["fused"](cfg)      # Fused
 attn = BLOCK["standard"](cfg)   # Standard
+attn = BLOCK["linear"](cfg)     # Linear
 ```

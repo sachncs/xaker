@@ -16,18 +16,26 @@ xaker/
 │   ├── core.py              Base, Qkv, keep, merge, broadcast, heads
 │   ├── func.py              kernel
 │   ├── kernel.py            Kernel
-│   ├── fused.py             Fused
+│   ├── fused.py             Fused (flagship: XSA + kernel + PCG)
+│   ├── linear.py            Linear (Katharopoulos et al. baseline)
 │   ├── ops.py               rms, zerodiag
 │   ├── standard.py          Standard
 │   └── xsa.py               Xsa, XsaStrategy, Projection, Zero, Mask
 ├── bench/
 │   ├── bench.py             Spec, Result, Metrics, tick, peak, converge, run, write, gitsha
+│   ├── ablate.py            Ablation sweep runner (kind/kernel/precond/mode)
+│   ├── condition.py         Kernel matrix condition-number benchmark
+│   ├── copy_task.py         Copy-task training comparison
+│   ├── lra.py               LRA-style synthetic tasks
+│   ├── wikitext.py          WikiText-2 training benchmark
 │   └── __init__.py
 ├── cli/
 │   ├── bench.py             xaker-bench CLI
 │   ├── eval.py              xaker-eval CLI
 │   ├── train.py             xaker-train CLI
 │   └── validate.py          xaker-validate CLI
+├── datasets/
+│   └── __init__.py          CopyTask, ReversalTask, WikiText
 ├── model/
 │   ├── block.py             Block, Mlp
 │   └── model.py             Model
@@ -58,7 +66,7 @@ a string of `if/elif` branches.
 | Site | Factory | Strategies |
 |---|---|---|
 | `xaker/solver/precond.py` | `Make(config)` | `Identity`, `Diagonal`, `Fast`, `Cccp` |
-| `xaker/attention/__init__.py` | `BLOCK[name](config)` | `Standard`, `Xsa`, `Fused` |
+| `xaker/attention/__init__.py` | `BLOCK[name](config)` | `Standard`, `Xsa`, `Fused`, `Linear` |
 | `xaker/attention/xsa.py` | `XsaStrategy(config, scale)` | `Projection`, `Zero`, `Mask` |
 
 Adding a new variant is one class + one entry in the dispatch table.

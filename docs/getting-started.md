@@ -85,11 +85,12 @@ smoke test.
 
 ```bash
 python3 -c "
-from xaker import Fused, Xsa, Standard, Config, BLOCK
+from xaker import Fused, Xsa, Standard, Linear, Config, BLOCK
 cfg = Config(dim=64, heads=4)
 print('BLOCK keys:', sorted(BLOCK.keys()))
 print('Fused:', BLOCK['fused'](cfg))
 print('Xsa:', BLOCK['xsa'](cfg))
 print('Standard:', BLOCK['standard'](cfg))
+print('Linear:', BLOCK['linear'](cfg))
 "
 ```

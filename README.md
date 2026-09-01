@@ -217,9 +217,19 @@ v1 attention code used to scatter through the package:
 - `Make(config)` -- preconditioner factory. Returns `Identity`,
   `Diagonal`, `Fast`, or `Cccp`.
 - `BLOCK[kind](config)` -- attention factory. Returns `Standard`,
-  `Xsa`, or `Fused`.
+  `Xsa`, `Fused`, or `Linear`.
 - `XsaStrategy(config, scale)` -- XSA mode factory. Returns
   `Projection`, `Zero`, or `Mask`.
+
+Four attention variants in `BLOCK`:
+
+- `Standard` -- Vaswani scaled dot-product attention.
+- `Xsa` -- XSA self-exclusion on top of scaled dot-product.
+- `Fused` -- The flagship: XSA + kernel ridge regression solved by
+  PCG with a configurable preconditioner.
+- `Linear` -- Linear-complexity attention baseline
+  (Katharopoulos et al., 2020). Reference comparison; fails on
+  tasks that need positional information.
 
 The `Fused` block kernelizes the XSA self-exclusion step into the
 regularised system `(K + lam I) alpha = V` and solves it by PCG.
@@ -237,12 +247,14 @@ for the derivation.
 ```
 xaker/
 ├── xaker/
+│   ├── __init__.py            Public surface (40+ symbols)
 │   ├── config.py              Config dataclass
 │   ├── attention/
 │   │   ├── core.py            Base, Qkv, keep, heads, merge, broadcast
 │   │   ├── standard.py        Standard scaled dot-product attention
 │   │   ├── xsa.py             Xsa, XsaStrategy, Projection, Zero, Mask
 │   │   ├── fused.py           Fused (flagship: XSA + kernel + PCG)
+│   │   ├── linear.py          Linear (Katharopoulos et al. baseline)
 │   │   ├── kernel.py          Kernel module (stateful exponential)
 │   │   ├── func.py            Stateless kernel + op
 │   │   └── ops.py             zerodiag, rms
@@ -257,7 +269,14 @@ xaker/
 │   │   ├── trainer.py         Trainer, Fit
 │   │   └── loss.py            ce
 │   ├── bench/
-│   │   └── bench.py           Spec, Result, Metrics, run, write
+│   │   ├── bench.py           Spec, Result, Metrics, run, write
+│   │   ├── ablate.py          Ablation sweep runner (kind/kernel/precond/mode)
+│   │   ├── condition.py       Kernel matrix condition-number benchmark
+│   │   ├── copy_task.py       Copy-task training comparison
+│   │   ├── lra.py             LRA-style synthetic tasks (copy/reversal/retrieval/addition)
+│   │   └── wikitext.py        WikiText-2 training benchmark
+│   ├── datasets/
+│   │   └── __init__.py        CopyTask, ReversalTask, WikiText loaders
 │   ├── rubric/
 │   │   ├── rubric.py          Score, Dimension, Rubric
 │   │   ├── grader.py          Six graders (novelty, repro, correctness, ...)
@@ -273,7 +292,7 @@ xaker/
 │       ├── finite.py          finite
 │       ├── ops.py             causal, padding, shape, clamp, BOUND
 │       └── rng.py             seed, snapshot, restore
-├── tests/                     276 tests, 85% coverage
+├── tests/                     296 tests, 91.5% coverage
 ├── examples/
 │   ├── run_paper_experiment.py
 │   └── specs/                 Five YAML experiment specs

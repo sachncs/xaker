@@ -251,14 +251,19 @@ Mitigations:
 
 ## 8. Computational complexity
 
-| Operation | `Standard` | `Xsa` | `Fused` (PCG) |
-|---|---|---|---|
-| Q/K/V projection | `O(n * d^2)` | `O(n * d^2)` | `O(n * d^2)` |
-| Kernel / scores | `O(n^2 * d)` | `O(n^2 * d)` | `O(n^2 * d)` |
-| Solve | `O(n^2 * d)` direct | `O(n^2 * d)` direct | `O(T * n^2 * d)` |
-| Preconditioner | — | — | `O(T * n * r * d)` (`Fast`) |
-| Output projection | `O(n * d^2)` | `O(n * d^2)` | `O(n * d^2)` |
-| **Total** | `O(n * d^2 + n^2 * d)` | `O(n * d^2 + n^2 * d)` | `O(n * d^2 + T * n^2 * d)` |
+| Operation | `Standard` | `Xsa` | `Fused` (PCG) | `Linear` |
+|---|---|---|---|---|
+| Q/K/V projection | `O(n * d^2)` | `O(n * d^2)` | `O(n * d^2)` | `O(n * d^2)` |
+| Kernel / scores | `O(n^2 * d)` | `O(n^2 * d)` | `O(n^2 * d)` | `O(n * d^2)` |
+| Solve | `O(n^2 * d)` direct | `O(n^2 * d)` direct | `O(T * n^2 * d)` | `O(n * d^2)` |
+| Preconditioner | — | — | `O(T * n * r * d)` (`Fast`) | — |
+| Output projection | `O(n * d^2)` | `O(n * d^2)` | `O(n * d^2)` | `O(n * d^2)` |
+| **Total** | `O(n * d^2 + n^2 * d)` | `O(n * d^2 + n^2 * d)` | `O(n * d^2 + T * n^2 * d)` | `O(n * d^2)` |
+
+`Linear` is `O(n)` in sequence length at the cost of feature-map
+approximation. The trade-off is positional information loss: the
+`elu + 1` feature map does not encode token position, so `Linear`
+fails on tasks that need it (LRA copy).
 
 `T = config.pcg`, default `20`. `r = config.rank`, default `32`.
 

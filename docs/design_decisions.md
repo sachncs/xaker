@@ -21,7 +21,7 @@ codebase used to scatter through `attention/` and `solver/`:
 | Site | Factory | Strategies |
 |---|---|---|
 | `xaker/solver/precond.py` | `Make(config)` | `Identity`, `Diagonal`, `Fast`, `Cccp` |
-| `xaker/attention/__init__.py` | `BLOCK[name](config)` | `Standard`, `Xsa`, `Fused` |
+| `xaker/attention/__init__.py` | `BLOCK[name](config)` | `Standard`, `Xsa`, `Fused`, `Linear` |
 | `xaker/attention/xsa.py` | `XsaStrategy(config, scale)` | `Projection`, `Zero`, `Mask` |
 
 Adding a new variant is one class plus one entry in the dispatch
@@ -36,8 +36,22 @@ The package ships three attention modules. They share `Base` and
 ### `Standard` (`attention/standard.py`)
 
 Vaswani-style scaled dot-product attention with L2-normalised
-queries and keys. The baseline against which `Xsa` and `Fused` are
-benchmarked.
+queries and keys. The baseline against which `Xsa`, `Fused`, and
+`Linear` are benchmarked.
+
+### `Linear` (`attention/linear.py`)
+
+Linear-complexity attention baseline from
+Katharopoulos et al., "Transformers are RNNs" (2020). Replaces
+softmax with the strictly-positive feature map `phi(x) = elu(x) + 1`
+and reorders the matmul to run in `O(n d^2)` instead of `O(n^2 d)`.
+This makes the per-step cost linear in sequence length at the price
+of an approximation that loses positional information; the LRA copy
+task exposes this with `Linear` reaching only 14% accuracy at
+length=32 vs 87-91% for the position-aware variants. `Linear` is
+included so the paper can quantify what `Fused` buys you over
+both vanilla softmax attention and the only other credible
+`O(n)`-memory alternative.
 
 ### `Xsa` (`attention/xsa.py`)
 

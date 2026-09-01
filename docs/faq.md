@@ -39,7 +39,7 @@ from xaker import Config, BLOCK, Make, XsaStrategy
 
 cfg = Config(dim=64, heads=4, precond="fast")
 
-attn = BLOCK[cfg.attention or "fused"](cfg)      # Standard / Xsa / Fused
+attn = BLOCK[cfg.attention or "fused"](cfg)      # Standard / Xsa / Fused / Linear
 precond_apply = Make(cfg).apply                 # preconditioner
 strategy = XsaStrategy(cfg, scale=...)          # Projection / Zero / Mask
 ```
@@ -98,3 +98,23 @@ Six dimensions: novelty, repro, correctness, efficiency, stability,
 usability. Each scored 0-3; total max 18. CI fails on
 `total < 14` or any non-novelty dimension below 2. Run locally with
 `xaker-validate --repo-root . --min-total 14`.
+
+## Why is `Linear` in `BLOCK` when it has nothing to do with XSA?
+
+`Linear` is the real linear-complexity baseline from
+Katharopoulos et al., 2020. It is included so the paper can
+quantify what Fused buys you over both vanilla softmax attention
+(`Standard`) and the only other credible O(n)-memory alternative
+(`Linear`). Empirically, `Linear` fails on positional tasks
+because the `elu + 1` feature map does not encode position; see
+`RESULTS.md` Section 7.
+
+## Why does `Linear` fail on the LRA copy task?
+
+The `elu + 1` feature map collapses the temporal structure of
+the input: `phi(q_i) @ phi(k_j)` is invariant to position. The
+copy task requires reconstructing the input in the original order,
+which is impossible without positional information. `Standard`,
+`Xsa`, and `Fused` all carry positional information through the
+softmax / kernel and solve the task at length=32; `Linear`
+plateaus at chance accuracy.
