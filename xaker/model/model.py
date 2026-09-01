@@ -95,7 +95,7 @@ class Model(nn.Module):
         vocab_size: Optional[int] = None,
         max_seq_len: int = 512,
         attention_type: Literal[
-            "standard", "xsa", "kernel", "fused", "fused_v2"
+            "standard", "xsa", "kernel", "fused", "fused_v2", "linear"
         ] = "fused_v2",
     ) -> None:
         """Initialize the Transformer encoder.

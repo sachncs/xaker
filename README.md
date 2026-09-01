@@ -45,51 +45,67 @@ known failure modes of vanilla attention:
 
 The flagship claim of this library is that the kernel ridge
 regression formulation with XSA diagonal removal produces a
-**3-12x lower condition number** than the equivalent softmax score
-matrix across sequence lengths (16 to 128), while remaining
-competitive on training tasks. Reproducible numbers from
-`paper_runs/scaling.json` and `paper_runs/trained_compare.json`.
+**300-1700x lower condition number** than the equivalent softmax
+score matrix across sequence lengths (16 to 128), while reaching
+**100% accuracy on the copy task** and matching `Standard` and
+`Xsa` on the LRA retrieval task. The trade-off is wall-clock
+overhead from solving `(K + lam I) alpha = V` by Preconditioned
+Conjugate Gradient at every forward pass.
 
 ### Condition number (lower is better)
 
-| Length | Standard (softmax) | Fused (kernel + XSA) | Fused / Standard |
-|--------|--------------------|----------------------|------------------|
-| 16     | 51,213             | 16,166               | 0.32x            |
-| 32     | 244,066            | 38,448               | 0.16x            |
-| 64     | 1,123,455          | 142,089              | 0.13x            |
-| 128    | 4,892,103          | 421,567              | 0.09x            |
+| Length | Score cond (Standard) | Kernel cond (Fused) | Ratio (kernel / score) |
+|--------|-----------------------|---------------------|-------------------------|
+| 16     | 1,018                 | 3.11                | 0.0031                  |
+| 32     | 3,346                 | 5.66                | 0.0017                  |
+| 64     | 12,310                | 12.76               | 0.0010                  |
+| 128    | 74,917                | 41.55               | 0.0006                  |
 
-### Trained comparison (copy task, length=16, 2-layer Transformer)
+### Trained comparison (copy task, length=16, 30 epochs)
 
-| Kind     | Final train loss | Final val loss | Val accuracy |
-|----------|------------------|----------------|--------------|
-| Standard | 0.0066           | 0.0068         | 100%         |
-| Xsa      | 0.0066           | 0.0068         | 100%         |
-| Fused    | 0.0066           | 0.0071         | 100%         |
+| Kind     | Train loss | Val loss | Accuracy | Wall (s) |
+|----------|------------|----------|----------|----------|
+| Standard | 0.0006     | 0.0006   | 100%     | 2.7      |
+| Xsa      | 0.0006     | 0.0006   | 100%     | 2.9      |
+| Fused    | 0.0005     | 0.0006   | 100%     | 13.2     |
+| Linear   | 0.0012     | 0.0007   | 100%     | 2.8      |
 
-All three variants reach 100% validation accuracy on the copy task;
-the fused-XSA variant delivers the condition-number improvement at
-negligible accuracy cost. See `RESULTS.md` for the full breakdown
-including preconditioner ablation, self-bias, and wall-clock
-benchmarks.
+### LRA-style tasks (length=32, 5 epochs)
+
+| Task       | Standard | Xsa | Fused | Linear |
+|------------|----------|-----|-------|--------|
+| copy       | 0.91     | 0.90| 0.87  | 0.14   |
+| retrieval  | 0.97     | 0.97| 0.97  | 0.97   |
+| addition   | 0.54     | 0.54| 0.54  | 0.54   |
+| reversal   | 0.07     | 0.07| 0.06  | 0.12   |
+
+`Linear` fails on copy (no positional information in `elu + 1`
+feature map). The other three are within 5% on every task at
+length=32. See `RESULTS.md` for the full breakdown including kernel,
+preconditioner, and mode ablations.
 
 ---
 
 ## Features
 
-- Three attention variants in one polymorphic dispatch
-  (`BLOCK[kind](config)`)
+- Four attention variants in one polymorphic dispatch
+  (`BLOCK[kind](config)`): `Standard`, `Xsa`, `Fused`, `Linear`
 - Four kernel functions: `exp`, `rbf`, `linear`, `cosine`
 - Three XSA modes: `subtract`, `zero`, `mask`
 - Four preconditioners: `identity`, `diagonal`, `fast`, `cccp`
 - PCG solver with direct-solve fallback (`xaker.solver.cg`)
+- Four baselines: `Standard` (Vaswani), `Linear` (Katharopoulos
+  et al. linear attention), `Xsa` (XSA only), `Fused` (XSA + kernel)
 - Typed bench driver emitting schema-stable JSON (`xaker.bench`)
+- Ablation harness: kernel, preconditioner, mode, and kind sweeps
+- Long Range Arena-style synthetic tasks: copy, reversal,
+  retrieval, addition
 - Paper-worthiness rubric enforced in CI (`xaker-validate`)
 - Four CLI entry points: `xaker-train`, `xaker-eval`,
   `xaker-bench`, `xaker-validate`
 - Single-word public API: no `_private` names, no `import x as y`
   aliases, no multi-word shims
-- 276 tests, 85% coverage, 18/18 rubric score
+- 296 tests, 92% coverage, 18/18 rubric score
 
 ---
 
@@ -281,7 +297,7 @@ xaker-validate --min-total 14                                 # paper rubric
 python -m examples.run_paper_experiment --spec examples/specs/baseline.yaml   # reproduce benchmark
 ```
 
-Current state: 276 tests passing, 85.41% coverage, 18/18 rubric.
+Current state: 296 tests passing, 91.5% coverage, 18/18 rubric.
 
 ---
 
@@ -296,6 +312,18 @@ Current state: 276 tests passing, 85.41% coverage, 18/18 rubric.
 - [Paper Rubric](docs/paper_rubric.md) -- the six-dimension grading rubric
 - [Results](RESULTS.md) -- benchmark numbers and ablation tables
 - [Limitations](docs/limitations.md) -- where xaker won't help
+
+Reproducible benchmarks (run on CPU):
+
+```bash
+python -m xaker.bench.ablate --axis kind --values standard xsa fused linear --length 32
+python -m xaker.bench.ablate --axis kernel --values exp rbf linear cosine --length 32
+python -m xaker.bench.ablate --axis precond --values identity diagonal fast cccp --length 32
+python -m xaker.bench.ablate --axis mode --values subtract zero mask --length 32
+python -m xaker.bench.condition --lam 10.0 --lengths 16 32 64 128
+python -m xaker.bench.copy_task --dim 64 --length 16 --epochs 30
+python -m xaker.bench.lra --dim 32 --length 32 --epochs 5
+```
 
 ---
 

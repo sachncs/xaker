@@ -7,31 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2026-09-01
 
+### Added
+- **Linear attention baseline** (`xaker/attention/linear.py`).
+  Katharopoulos et al. linear attention with `elu + 1` feature
+  map. Registered as `BLOCK["linear"]` so it competes against
+  Standard / Xsa / Fused in every benchmark.
+- **Ablation benchmark runner** (`xaker/bench/ablate.py`). Sweep
+  over attention kind, kernel function, preconditioner, and mode;
+  emits the same JSON schema as `xaker.bench.run`.
+- **LRA-style task suite** (`xaker/bench/lra.py`). Four synthetic
+  long-context tasks: copy, reversal, retrieval, addition. Each
+  trained on all four attention variants; per-task accuracy and
+  wall-clock reported.
+- **Condition-number benchmark** (`xaker/bench/condition.py`).
+  Compares the conditioning of the score matrix (Standard/Xsa)
+  against the regularised kernel matrix (Fused) across sequence
+  lengths.
+- **Copy-task training benchmark** (`xaker/bench/copy_task.py`).
+  End-to-end training comparison of the four variants on a
+  synthetic copy task.
+- **WikiText benchmark stub** (`xaker/bench/wikitext.py`). CPU
+  baseline using `datasets.WikiText` byte-level tokenisation with
+  synthetic fallback.
+- **Dataset loaders** (`xaker/datasets/`). `CopyTask`,
+  `ReversalTask`, `WikiText`. The WikiText loader caches to
+  `~/.cache/xaker/wikitext_<split>.pt` for reproducibility.
+- **RESULTS.md**: comprehensive benchmark report covering all
+  four ablations, condition numbers, copy-task training, and LRA
+  tasks. Headline: kernel ridge regression gives 300-1700x lower
+  condition number than softmax across sequence lengths.
+
 ### Changed
 - **Class rename: `Laker` to `Fused`.** The flagship fused-XSA class is
   now exported as `xaker.Fused` (was `xaker.Laker`). Module renamed
   `xaker/attention/laker.py` to `xaker/attention/fused.py`; the
   `BLOCK["fused"]` dispatch key was already `fused` and is unchanged.
   Migration: `from xaker import Fused` replaces `from xaker import Laker`.
-- **README rewritten** to position xaker as the open-source
-  companion to a paper-in-progress on fused XSA + kernel ridge
-  regression. Added a "Results" section with reproducible numbers
-  from `paper_runs/*.json`: kernel condition number 3-12x lower than
-  standard softmax; trained comparison across all three attention
-  variants on a copy task reaching 100% accuracy.
-- **Added `RESULTS.md`** documenting the benchmark methodology,
-  condition-number measurements, preconditioner ablation, and trained
-  comparison.
-- **Project description** (GitHub sidebar) updated to
-  "Exclusive Self Attention (XSA) for Transformer models. Three
-  attention variants (Standard, Xsa, Fused), four kernels (exp,
-  rbf, linear, cosine), four preconditioners, polymorphic dispatch
-  with a single-word API."
-- All `docs/` files updated to drop `Laker` references in favour of
-  `Fused`.
-- **`paper_runs/`** populated with reproducible benchmark JSON:
-  `baseline.json`, `scaling.json`, `trained_compare.json`,
-  `ablation_identity.json`.
+- **Public surface** expanded: `Linear` is now re-exported at
+  `xaker.Linear` and in `__all__`. `BLOCK` registry has four
+  entries: `standard`, `xsa`, `fused`, `linear`. `Model` accepts
+  `attention_type="linear"` as a valid value.
+- **Device selection** in `xaker.bench` honours the
+  `XAKER_DEVICE` environment variable (`cpu` / `cuda` / `mps`).
+  Default is `cpu` because several PCG ops have bugs on MPS.
+- **MPS-aware timing**: `xaker.bench.tick` and `peak` now
+  synchronise on MPS as well as CUDA. Wall-clock measurements are
+  accurate on Apple Silicon.
+
+### Quantitative findings (CPU, dim=64, lam=10.0)
+
+Wall-clock at length=32:
+
+| Kind     | Forward ms | Backward ms |
+|----------|------------|-------------|
+| Linear   | 0.16       | 0.42        |
+| Standard | 0.18       | 0.56        |
+| Xsa      | 0.17       | 0.50        |
+| Fused    | 42.17      | 184.76      |
+
+Kernel matrix condition number (the headline result):
+
+| Length | Score cond (Standard) | Kernel cond (Fused) | Ratio |
+|--------|-----------------------|---------------------|-------|
+| 16     | 1,018                 | 3.11                | 0.003 |
+| 32     | 3,346                 | 5.66                | 0.002 |
+| 64     | 12,310                | 12.76               | 0.001 |
+| 128    | 74,917                | 41.55               | 0.001 |
+
+LRA copy task (5 epochs, length=32): `Standard` 0.91, `Xsa` 0.90,
+`Fused` 0.87, `Linear` 0.14. Linear fails on copy because the
+`elu + 1` feature map loses positional information.
 
 ### Migration
 
@@ -45,6 +90,11 @@ from xaker import Fused
 attn = Fused(config)
 # or, equivalently:
 attn = BLOCK["fused"](config)
+
+# 0.5 also adds Linear as a baseline
+from xaker import Linear
+attn = Linear(config)
+attn = BLOCK["linear"](config)
 ```
 
 ## [0.4.0] - 2026-09-01

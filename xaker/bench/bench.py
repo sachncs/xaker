@@ -85,6 +85,18 @@ def gitsha() -> str:
         return ""
 
 
+def _sync() -> None:
+    """Synchronize the active accelerator.
+
+    Synchronizes CUDA when available; otherwise MPS. Used to
+    bracket timed regions in :func:`tick` and :func:`peak`.
+    """
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    elif torch.backends.mps.is_available():
+        torch.mps.synchronize()
+
+
 def tick(
     module: nn.Module,
     x: torch.Tensor,
@@ -113,18 +125,15 @@ def tick(
         with torch.no_grad():
             _ = module(x)
 
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
+    _sync()
 
     ft: List[float] = []
     for _ in range(runs):
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
+        _sync()
         t0 = time.perf_counter()
         with torch.no_grad():
             _ = module(x)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
+        _sync()
         ft.append((time.perf_counter() - t0) * 1000)
     fm = sum(ft) / len(ft)
     fstd = (sum((t - fm) ** 2 for t in ft) / max(len(ft) - 1, 1)) ** 0.5
@@ -133,13 +142,11 @@ def tick(
     x_g = x.clone().requires_grad_(True)
     bt: List[float] = []
     for _ in range(runs):
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
+        _sync()
         t0 = time.perf_counter()
         out = module(x_g)
         out.sum().backward()
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
+        _sync()
         bt.append((time.perf_counter() - t0) * 1000)
         x_g.grad = None
     bm = sum(bt) / len(bt)
@@ -156,7 +163,8 @@ def peak(module: nn.Module, x: torch.Tensor, *, ctx: Ctx) -> float:
         ctx: Execution context.
 
     Returns:
-        Peak GPU memory in MiB. ``0.0`` when CUDA is unavailable.
+        Peak GPU memory in MiB. ``0.0`` when neither CUDA nor MPS
+        is available.
     """
     module = module.to(ctx.device).to(ctx.dtype)
     x = x.to(ctx.device).to(ctx.dtype)
@@ -166,6 +174,8 @@ def peak(module: nn.Module, x: torch.Tensor, *, ctx: Ctx) -> float:
         out = module(x_g)
         out.sum().backward()
         return torch.cuda.max_memory_allocated() / 1024 / 1024
+    if hasattr(torch, "mps") and torch.backends.mps.is_available():
+        return 0.0  # MPS does not expose peak memory stats
     return 0.0
 
 

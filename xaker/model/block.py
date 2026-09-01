@@ -195,7 +195,7 @@ class Block(nn.Module):
         self.norm1 = nn.LayerNorm(config.dim, eps=config.eps)
         self.norm2 = nn.LayerNorm(config.dim, eps=config.eps)
 
-        # Aliases: "kernel" and "fused_v2" both select the fused (Laker) block.
+        # Aliases: "kernel" and "fused_v2" both select the fused (XSA + kernel) block.
         kind_map = {"fused_v2": "fused", "kernel": "fused"}
         kind = kind_map.get(attention_type, attention_type)
         if kind not in BLOCK:
