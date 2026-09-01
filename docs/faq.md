@@ -1,106 +1,51 @@
-# Frequently Asked Questions
+# FAQ
 
-## General
+## Why is the package called `xaker`?
 
-### What is LAKER-XSA?
+`xaker` fuses the two scientific contributions — XSA (Exclusive Self
+Attention) and LAKER (Learned Preconditioning for Attention Kernel
+Regression) — into one searchable brand.
 
-LAKER-XSA is a production-grade implementation of two attention mechanisms for Transformer models:
+## Why no v1 attention classes?
 
-1. **Exclusive Self Attention (XSA)**: Removes self-aligned components from attention output, forcing each token to aggregate only from other tokens.
-2. **LAKER Kernel Attention**: Treats attention as kernel ridge regression with a learned preconditioner, solved via Preconditioned Conjugate Gradient.
+`LakerAttentionLayer`, `KernelFunction`, `LearnedPreconditioner`,
+`KernelAttentionRegression`, `FusedXSALAKERAttention` were deprecated
+and hard-deleted. The v2 `Laker` module replaces them with cleaner
+polymorphism.
 
-The library fuses these two mechanisms into a single attention module (`LakerAttention`) that addresses both self-bias and spectral collapse in standard attention.
+## Why does `pcg` return a `Solve` dataclass?
 
-### Is this a research prototype or production-ready?
+`pcg` reports whether it converged, the final residual, the iteration
+count, and per-iteration history. Callers can decide whether to fall
+back to a direct solver (`torch.linalg.solve`).
 
-It is production-quality code with full type hints, comprehensive tests (269 tests, 88% coverage), CI passing (pylint, mypy, pytest), and a clean modular API. However, it has computational overhead (8-10x slower than standard attention) and is best suited for research or settings where the accuracy benefits justify the cost.
+## Why does `Laker` always allocate `xsa_scale` as `nn.Parameter`?
 
-### What papers does this implement?
+Even for `mode="zero"` (which doesn't use it), the parameter is allocated.
+This keeps `state_dict` keys stable and avoids mode-branching in
+`__init__`.
 
-- **XSA**: [arXiv:2603.09078](https://arxiv.org/abs/2603.09078) - Exclusive Self Attention
-- **LAKER**: [arXiv:2604.25138](https://arxiv.org/html/2604.25138v1) - Learned Preconditioning for Attention Kernel Regression
+## Why is `Mask` (the function name) not in the public API?
 
-The v2 fusion (`LakerAttention`) is a novel unpublished combination of both.
+`mask` is a method parameter on `attend(x, mask)`. We use `keep(scores, mask)`
+internally to avoid the name clash. Use `apply_mask` if you need the
+function externally — it's re-exported.
 
-## Installation
+## Why is `rng` separate, not `random`?
 
-### What Python versions are supported?
+`xaker.utils.rng` exposes `seed`, `snapshot`, `restore` with consistent
+seeding across Python, NumPy, PyTorch CPU, and CUDA. Using the single-word
+name `rng` keeps the public API tight.
 
-Python 3.9, 3.10, 3.11, and 3.12.
+## Why is `to_ctx` instead of `to_device`?
 
-### Do I need a GPU?
+`to_ctx(t, ctx)` is the only tensor-context helper; a single compound
+identifier keeps the public surface small.
 
-No. LAKER-XSA runs on CPU, but a CUDA-capable GPU is recommended for reasonable performance on sequences longer than a few hundred tokens.
+## How do I add a new attention variant?
 
-### How do I install development dependencies?
+1. Implement your class in `xaker/attention/<name>.py`, subclassing `Base`.
+2. Register it in `xaker/attention/__init__.py:BLOCK`.
+3. Add it to `Spec.kinds` (the `Literal` type).
 
-```bash
-pip install -e ".[dev]"
-```
-
-This installs pytest, pytest-cov, pylint, black, and mypy.
-
-## Usage
-
-### Which attention type should I use?
-
-For most use cases, use `fused_v2` (`LakerAttention`). It combines both XSA and LAKER for the strongest theoretical grounding. Use `standard` for baseline comparisons.
-
-### How do I configure the attention?
-
-Use the `XSA_LAKER_Config` dataclass:
-
-```python
-from laker_xsa import XSA_LAKER_Config
-
-config = XSA_LAKER_Config(
-    d_model=512,           # Embedding dimension
-    num_heads=8,           # Number of attention heads
-    dropout=0.1,           # Dropout rate
-    lambda_init=3.0,       # Regularization for kernel system
-    kernel_type="exp_attention",  # Kernel function
-    xsa_mode="subtract_projection",  # XSA strategy
-    preconditioner_type="fast",  # Preconditioner mode
-    pcg_max_iterations=20,  # Max solver iterations
-    pcg_tolerance=1e-2,    # Solver convergence tolerance
-)
-```
-
-See the [API Reference](../README.md#api-reference) for all options.
-
-### Why is it slower than standard attention?
-
-LAKER-XSA computes a full kernel matrix O(n^2) and solves an iterative system per attention call. The trade-off is theoretically stronger attention at the cost of ~8-10x compute overhead. See [Limitations](limitations.md) for details.
-
-### Can I use it with Hugging Face models?
-
-Not directly. LAKER-XSA provides its own Transformer implementation (`XSALAKERTransformer`). To use it with Hugging Face, you would need to replace the attention layers in an existing model.
-
-## Troubleshooting
-
-### Training diverges or produces NaN
-
-- Increase `lambda_init` (e.g., from 3.0 to 10.0)
-- Reduce learning rate
-- Use `preconditioner_type="fast"` instead of `"cccp"` for sequences > 1024
-- Enable gradient clipping in your training loop
-
-### Out of memory on long sequences
-
-- Reduce sequence length (practical limit ~2048 tokens)
-- Reduce `preconditioner_rank` (default 32)
-- Reduce `pcg_max_iterations`
-- Use a smaller `d_model`
-
-### Tests fail after installation
-
-Ensure you have the dev dependencies installed:
-
-```bash
-pip install -e ".[dev]"
-pytest tests/ -v
-```
-
-## Contributing
-
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for development setup, coding standards, and pull request process.
+That's it — `Block` accepts attention by dependency injection.

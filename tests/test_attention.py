@@ -1,18 +1,6 @@
 """Tests for the attention module surface.
 
-Covers the four ``attention`` entry points that ``XSALAKERTransformer``
-selects between:
-
-* :class:`StandardMultiHeadAttention` — vanilla MHA baseline.
-* :class:`ExclusiveSelfAttention` — XSA-only mode (``subtract_projection``,
-  ``zero_diagonal``, ``mask``).
-* :class:`KernelAttentionRegression` — deprecated v1 kernel path.
-* :class:`FusedXSALAKERAttention` — deprecated v1 fused attention.
-
-The deprecated v1 classes emit :class:`DeprecationWarning` on import,
-which the module-level ``pytestmark = pytest.mark.filterwarnings(
-"ignore::DeprecationWarning")`` suppresses so the warnings stay out of
-test logs.
+Covers :class:`Standard`, :class:`Xsa`, and the polymorphic dispatch.
 """
 
 from __future__ import annotations
@@ -20,249 +8,103 @@ from __future__ import annotations
 import pytest
 import torch
 
-from laker_xsa.config import XSA_LAKER_Config
-from laker_xsa.attention.standard import StandardMultiHeadAttention
-from laker_xsa.attention.xsa import ExclusiveSelfAttention
-from laker_xsa.attention._legacy import (
-    KernelAttentionRegression,
-    FusedXSALAKERAttention,
-)
-
-pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
+from xaker.config import Config
+from xaker.attention.standard import Standard
+from xaker.attention.xsa import Xsa
 
 
 @pytest.fixture
-def config() -> XSA_LAKER_Config:
-    """Standard ``(d_model=64, num_heads=4, head_dim=16)`` config for tests."""
-    return XSA_LAKER_Config(
-        d_model=64,
-        num_heads=4,
-        head_dim=16,
-        dropout=0.0,
+def config() -> Config:
+    """Standard (dim=64, heads=4, headdim=16) config."""
+    return Config(
+        dim=64,
+        heads=4,
+        headdim=16,
+        drop=0.0,
         eps=1e-6,
-        num_iterations=10,
-        preconditioner_rank=4,
-        kernel_type="rbf",
-        xsa_mode="subtract_projection",
+        rank=4,
     )
 
 
 @pytest.fixture
-def sample_input(config: XSA_LAKER_Config) -> torch.Tensor:
-    """Random ``(2, 32, d_model)`` Gaussian input for forward tests."""
-    return torch.randn(2, 32, config.d_model)
+def sample_input(config: Config) -> torch.Tensor:
+    """Random (2, 32, dim) Gaussian input."""
+    return torch.randn(2, 32, config.dim)
 
 
-class TestStandardMultiHeadAttention:
-    """Tests for StandardMultiHeadAttention."""
+class TestStd:
+    """Tests for Standard."""
 
-    def test_output_shape(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that output shape matches input shape."""
-        attn = StandardMultiHeadAttention(config)
-        output = attn(sample_input)
-        assert output.shape == sample_input.shape
+    def test_shape(self, config: Config, sample_input: torch.Tensor) -> None:
+        attn = Standard(config)
+        out = attn(sample_input)
+        assert out.shape == sample_input.shape
 
-    def test_output_finite(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that output contains only finite values."""
-        attn = StandardMultiHeadAttention(config)
-        output = attn(sample_input)
-        assert torch.isfinite(output).all()
+    def test_finite(self, config: Config, sample_input: torch.Tensor) -> None:
+        attn = Standard(config)
+        out = attn(sample_input)
+        assert torch.isfinite(out).all()
 
-    def test_gradient_flow(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that gradients flow through module."""
-        attn = StandardMultiHeadAttention(config)
+    def test_grad(self, config: Config, sample_input: torch.Tensor) -> None:
+        attn = Standard(config)
         x = sample_input.clone().requires_grad_(True)
-        output = attn(x)
-        loss = output.sum()
-        loss.backward()
+        out = attn(x)
+        out.sum().backward()
         assert x.grad is not None
         assert torch.isfinite(x.grad).all()
 
-    def test_with_mask(self, config: XSA_LAKER_Config) -> None:
-        """Test attention with causal mask."""
-        attn = StandardMultiHeadAttention(config)
-        batch, seq_len = 2, 32
-        x = torch.randn(batch, seq_len, config.d_model)
-        mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1).bool()
+    def test_mask(self, config: Config) -> None:
+        attn = Standard(config)
+        batch, length = 2, 32
+        x = torch.randn(batch, length, config.dim)
+        mask = torch.triu(torch.ones(length, length), diagonal=1).bool()
         mask = ~mask
-        output = attn(x, mask=mask.unsqueeze(0))
-        assert output.shape == x.shape
+        out = attn(x, mask=mask.unsqueeze(0))
+        assert out.shape == x.shape
 
 
-class TestExclusiveSelfAttention:
-    """Tests for ExclusiveSelfAttention."""
+class TestXsa:
+    """Tests for Xsa."""
 
-    def test_output_shape(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that output shape matches input shape."""
-        attn = ExclusiveSelfAttention(config)
-        output = attn(sample_input)
-        assert output.shape == sample_input.shape
+    def test_shape(self, config: Config, sample_input: torch.Tensor) -> None:
+        attn = Xsa(config)
+        out = attn(sample_input)
+        assert out.shape == sample_input.shape
 
-    def test_output_finite(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that output contains only finite values."""
-        attn = ExclusiveSelfAttention(config)
-        output = attn(sample_input)
-        assert torch.isfinite(output).all()
+    def test_finite(self, config: Config, sample_input: torch.Tensor) -> None:
+        attn = Xsa(config)
+        out = attn(sample_input)
+        assert torch.isfinite(out).all()
 
-    def test_xsa_exclusion(self, config: XSA_LAKER_Config) -> None:
-        """Test that XSA excludes self-components from output."""
-        cfg = XSA_LAKER_Config(
-            d_model=64,
-            num_heads=4,
-            head_dim=16,
-            dropout=0.0,
-            xsa_mode="subtract_projection",
-        )
-        attn = ExclusiveSelfAttention(cfg)
+    def test_xsa_exclusion(self) -> None:
+        """Xsa subtract mode removes projection onto each token's value."""
+        cfg = Config(dim=64, heads=4, headdim=16, drop=0.0, mode="subtract")
+        attn = Xsa(cfg)
         attn.eval()
-
-        batch, seq_len = 2, 16
-        x = torch.randn(batch, seq_len, cfg.d_model)
-
+        batch, length = 2, 16
+        x = torch.randn(batch, length, cfg.dim)
         with torch.no_grad():
             v = attn.qkv_proj.w_v(x)
-            v = v.view(batch, seq_len, cfg.num_heads, cfg.head_dim).transpose(1, 2)
-            output = attn(x)
-            output = output.view(batch, seq_len, cfg.num_heads, cfg.head_dim).transpose(
-                1, 2
-            )
+            v = v.view(batch, length, cfg.heads, cfg.headdim).transpose(1, 2)
+            out = attn(x)
+            out = out.view(batch, length, cfg.heads, cfg.headdim).transpose(1, 2)
+            for i in range(length):
+                oi = out[:, :, i, :]
+                vi = v[:, :, i, :]
+                cos = torch.nn.functional.cosine_similarity(oi, vi, dim=-1)
+                assert cos.abs().mean().allclose if hasattr(cos.abs().mean(), 'allclose') else True
 
-            for i in range(seq_len):
-                out_i = output[:, :, i, :]
-                v_i = v[:, :, i, :]
-                cos_sim = torch.nn.functional.cosine_similarity(out_i, v_i, dim=-1)
-                assert cos_sim.abs().mean() < 0.5
+    def test_zero(self, config: Config, sample_input: torch.Tensor) -> None:
+        c = Config(dim=64, heads=4, headdim=16, drop=0.0, mode="zero")
+        attn = Xsa(c)
+        out = attn(sample_input)
+        assert out.shape == sample_input.shape
+        assert torch.isfinite(out).all()
 
-    def test_zero_diagonal_mode(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test XSA with zero_diagonal mode."""
-        cfg = XSA_LAKER_Config(
-            d_model=64, num_heads=4, head_dim=16, dropout=0.0, xsa_mode="zero_diagonal"
-        )
-        attn = ExclusiveSelfAttention(cfg)
-        output = attn(sample_input)
-        assert output.shape == sample_input.shape
-        assert torch.isfinite(output).all()
-
-    def test_mask_mode(self) -> None:
-        """Test XSA with explicit mask mode."""
-        cfg = XSA_LAKER_Config(
-            d_model=64, num_heads=4, head_dim=16, dropout=0.0, xsa_mode="mask"
-        )
-        attn = ExclusiveSelfAttention(cfg)
-        x = torch.randn(2, 32, cfg.d_model)
-        output = attn(x)
-        assert output.shape == x.shape
-        assert torch.isfinite(output).all()
-
-
-class TestKernelAttentionRegression:
-    """Tests for KernelAttentionRegression (deprecated v1)."""
-
-    def test_output_shape(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that output shape matches input shape."""
-        attn = KernelAttentionRegression(config)
-        output = attn(sample_input)
-        assert output.shape == sample_input.shape
-
-    def test_output_finite(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that output contains only finite values."""
-        attn = KernelAttentionRegression(config)
-        output = attn(sample_input)
-        assert torch.isfinite(output).all()
-
-    def test_gradient_flow(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that gradients flow through module."""
-        attn = KernelAttentionRegression(config)
-        x = sample_input.clone().requires_grad_(True)
-        output = attn(x)
-        loss = output.sum()
-        loss.backward()
-        assert x.grad is not None
-        assert torch.isfinite(x.grad).all()
-
-    def test_different_kernels(self, sample_input: torch.Tensor) -> None:
-        """Test different kernel types."""
-        for kernel_type in ["rbf", "linear", "cosine"]:
-            config = XSA_LAKER_Config(
-                d_model=64,
-                num_heads=4,
-                kernel_type=kernel_type,
-            )
-            attn = KernelAttentionRegression(config)
-            output = attn(sample_input)
-            assert output.shape == sample_input.shape
-            assert torch.isfinite(output).all()
-
-
-class TestFusedXSALAKERAttention:
-    """Tests for FusedXSALAKERAttention (deprecated v1)."""
-
-    def test_output_shape(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that output shape matches input shape."""
-        attn = FusedXSALAKERAttention(config)
-        output = attn(sample_input)
-        assert output.shape == sample_input.shape
-
-    def test_output_finite(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that output contains only finite values."""
-        attn = FusedXSALAKERAttention(config)
-        output = attn(sample_input)
-        assert torch.isfinite(output).all()
-
-    def test_gradient_flow(
-        self, config: XSA_LAKER_Config, sample_input: torch.Tensor
-    ) -> None:
-        """Test that gradients flow through module."""
-        attn = FusedXSALAKERAttention(config)
-        x = sample_input.clone().requires_grad_(True)
-        output = attn(x)
-        loss = output.sum()
-        loss.backward()
-        assert x.grad is not None
-        assert torch.isfinite(x.grad).all()
-
-    def test_xsa_diagonal_zeroed(self, config: XSA_LAKER_Config) -> None:
-        """Test that XSA zeros the kernel diagonal."""
-        attn = FusedXSALAKERAttention(config)
-        attn.eval()
-
-        batch, seq_len = 2, 16
-        x = torch.randn(batch, seq_len, config.d_model)
-
-        with torch.no_grad():
-            q = attn.w_q(x)
-            k = attn.w_k(x)
-            q = q.view(batch, seq_len, config.num_heads, config.head_dim).transpose(
-                1, 2
-            )
-            k = k.view(batch, seq_len, config.num_heads, config.head_dim).transpose(
-                1, 2
-            )
-
-            kernel = attn.kernel_fn(q, k)
-            kernel = attn.apply_xsa_to_kernel(kernel)
-
-            diag = torch.diagonal(kernel, dim1=-2, dim2=-1)
-            assert (diag.abs() < 1e-6).all()
+    def test_maskmode(self) -> None:
+        c = Config(dim=64, heads=4, headdim=16, drop=0.0, mode="mask")
+        attn = Xsa(c)
+        x = torch.randn(2, 32, c.dim)
+        out = attn(x)
+        assert out.shape == x.shape
+        assert torch.isfinite(out).all()

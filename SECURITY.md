@@ -9,7 +9,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability within LAKER-XSA, please send an email to **sachncs@gmail.com**. All security vulnerabilities will be promptly addressed.
+If you discover a security vulnerability within XAKER, please send an email to **sachncs@gmail.com**. All security vulnerabilities will be promptly addressed.
 
 **Please do NOT report security vulnerabilities through public GitHub issues.**
 
@@ -31,9 +31,9 @@ When reporting a vulnerability, please include:
 
 ## Security Best Practices
 
-When using LAKER-XSA in production:
+When using XAKER in production:
 
-- Keep dependencies up to date (`pip install --upgrade laker-xsa`)
+- Keep dependencies up to date (`pip install --upgrade xaker`)
 - Use virtual environments to isolate installations
 - Do not expose model checkpoints or training data in public repositories
 - Review configuration parameters before deploying to production
@@ -45,7 +45,7 @@ We use [Dependabot](https://github.com/dependabot) to monitor dependencies for k
 
 ## Scope
 
-This security policy applies to the LAKER-XSA package distributed via PyPI and the source code in the official GitHub repository at [github.com/sachncs/laker-xsa](https://github.com/sachncs/laker-xsa).
+This security policy applies to the XAKER package distributed via PyPI and the source code in the official GitHub repository at [github.com/sachncs/xaker](https://github.com/sachncs/xaker).
 
 It does not apply to:
 

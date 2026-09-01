@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug to help us improve LAKER-XSA
+description: Report a bug to help us improve XAKER
 title: "[BUG] "
 labels: ["bug"]
 body:
@@ -25,7 +25,7 @@ body:
       placeholder: |
         ```python
         import torch
-        from laker_xsa import XSA_LAKER_Config, LakerAttention
+        from xaker import XSA_LAKER_Config, LakerAttention
 
         config = XSA_LAKER_Config(d_model=512, num_heads=8)
         attn = LakerAttention(config)
@@ -91,8 +91,8 @@ body:
   - type: input
     id: laker-version
     attributes:
-      label: LAKER-XSA Version
-      description: "Run `python -c \"import laker_xsa; print(laker_xsa.__version__)\"` to check."
+      label: XAKER Version
+      description: "Run `python -c \"import xaker; print(xaker.__version__)\"` to check."
       placeholder: "0.2.3"
     validations:
       required: true

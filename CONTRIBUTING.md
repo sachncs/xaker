@@ -1,11 +1,11 @@
-# Contributing to LAKER-XSA
+# Contributing to XAKER
 
-Thank you for considering contributing to LAKER-XSA! This document outlines the process for contributing to the project.
+Thank you for considering contributing to XAKER! This document outlines the process for contributing to the project.
 
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/your-username/laker-xsa.git`
+2. Clone your fork: `git clone https://github.com/your-username/xaker.git`
 3. Create a virtual environment: `python -m venv venv && source venv/bin/activate`
 4. Install development dependencies: `pip install -e ".[dev]"`
 5. Run the tests to verify everything works: `pytest tests/ -v`
@@ -73,9 +73,9 @@ chore: update pytest to 8.0
 1. Create a branch: `git checkout -b feat/your-feature-name`
 2. Make your changes
 3. Run tests: `pytest tests/ -v`
-4. Run linting: `pylint laker_xsa/ --rcfile=pyproject.toml`
-5. Run type checking: `mypy laker_xsa/ --ignore-missing-imports`
-6. Format code: `black laker_xsa/ tests/`
+4. Run linting: `pylint xaker/ --rcfile=pyproject.toml`
+5. Run type checking: `mypy xaker/ --ignore-missing-imports`
+6. Format code: `black xaker/ tests/`
 7. Commit your changes using conventional commit format
 8. Push to your fork: `git push origin feat/your-feature-name`
 9. Open a Pull Request
@@ -96,7 +96,7 @@ chore: update pytest to 8.0
 pytest tests/ -v
 
 # Run with coverage
-pytest tests/ --cov=laker_xsa --cov-report=html
+pytest tests/ --cov=xaker --cov-report=html
 
 # Run specific test file
 pytest tests/test_attention.py -v

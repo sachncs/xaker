@@ -1,125 +1,111 @@
-"""Tests for :class:`XSA_LAKER_Config` construction and validation.
+"""Tests for :class:`Config` construction and validation.
 
-Covers the canonical defaults (``dropout=0.0``, ``eps=1e-6``,
-``lambda_init=3.0``, ``kernel_type="exp_attention"``,
-``xsa_mode="subtract_projection"``, ``preconditioner_type="fast"``,
-``kernel_temperature=1.0``, ``kernel_symmetric=False``,
-``kernel_normalize_qk=True``, ``precond_update_frequency=1``,
-``pcg_tolerance=1e-2``, ``clip_abs=1e6``), ``head_dim`` default-filling,
-``effective_pcg_iters`` passthrough, round-tripping of all recognised
-enum values, and validation rejections for illegal inputs (non-divisible
-``d_model``, unknown enum strings, ``pcg_max_iterations <= 0``,
-``num_iterations <= 0``, ``dropout`` outside ``[0, 1]``, non-positive
-``eps``, negative ``lambda_init``).
+Covers canonical defaults, single-word field values, and validation
+rejections for illegal inputs (non-divisible dim, unknown enum strings,
+pcg <= 0, eps, negative lam).
 """
 
 from __future__ import annotations
 
 import pytest
 
-from laker_xsa.config import XSA_LAKER_Config
+from xaker.config import Config
 
 
 class TestConfigConstruction:
     """Tests for valid config construction."""
 
-    def test_valid_default_config(self) -> None:
-        cfg = XSA_LAKER_Config(d_model=128, num_heads=4)
-        assert cfg.d_model == 128
-        assert cfg.num_heads == 4
-        assert cfg.head_dim == 32  # auto: 128/4
-        assert cfg.effective_pcg_iters == 20
+    def test_valid_default(self) -> None:
+        cfg = Config(dim=128, heads=4)
+        assert cfg.dim == 128
+        assert cfg.heads == 4
+        assert cfg.headdim == 32
 
-    def test_explicit_head_dim(self) -> None:
-        cfg = XSA_LAKER_Config(d_model=128, num_heads=8, head_dim=32)
-        assert cfg.head_dim == 32
+    def test_explicit_headdim(self) -> None:
+        cfg = Config(dim=128, heads=8, headdim=32)
+        assert cfg.headdim == 32
 
-    def test_auto_head_dim(self) -> None:
-        cfg = XSA_LAKER_Config(d_model=256, num_heads=8)
-        assert cfg.head_dim == 32
+    def test_auto_headdim(self) -> None:
+        cfg = Config(dim=256, heads=8)
+        assert cfg.headdim == 32
 
-    def test_all_preconditioner_types(self) -> None:
-        for ptype in ["cccp", "fast", "diagonal", "none"]:
-            cfg = XSA_LAKER_Config(d_model=64, num_heads=4, preconditioner_type=ptype)
-            assert cfg.preconditioner_type == ptype
+    def test_all_precond(self) -> None:
+        for ptype in ["cccp", "fast", "diagonal", "identity"]:
+            cfg = Config(dim=64, heads=4, precond=ptype)
+            assert cfg.precond == ptype
 
-    def test_all_xsa_modes(self) -> None:
-        for mode in ["subtract_projection", "zero_diagonal", "mask"]:
-            cfg = XSA_LAKER_Config(d_model=64, num_heads=4, xsa_mode=mode)
-            assert cfg.xsa_mode == mode
+    def test_all_mode(self) -> None:
+        for mode in ["subtract", "zero", "mask"]:
+            cfg = Config(dim=64, heads=4, mode=mode)
+            assert cfg.mode == mode
 
-    def test_all_kernel_types(self) -> None:
-        for kt in ["exp_attention", "rbf", "linear", "cosine"]:
-            cfg = XSA_LAKER_Config(d_model=64, num_heads=4, kernel_type=kt)
-            assert cfg.kernel_type == kt
+    def test_all_kernel(self) -> None:
+        for kt in ["exp", "rbf", "linear", "cosine"]:
+            cfg = Config(dim=64, heads=4, kernel=kt)
+            assert cfg.kernel == kt
 
-    def test_effective_pcg_iters_property(self) -> None:
-        cfg = XSA_LAKER_Config(d_model=64, num_heads=4, pcg_max_iterations=30)
-        assert cfg.effective_pcg_iters == 30
+    def test_pcg_field(self) -> None:
+        cfg = Config(dim=64, heads=4, pcg=30)
+        assert cfg.pcg == 30
 
 
-class TestConfigValidationErrors:
+class TestConfigInvalid:
     """Tests for config validation."""
 
-    def test_d_model_not_divisible(self) -> None:
+    def test_div(self) -> None:
         with pytest.raises(ValueError, match="must be divisible"):
-            XSA_LAKER_Config(d_model=65, num_heads=4)
+            Config(dim=65, heads=4)
 
-    def test_invalid_kernel_type(self) -> None:
-        with pytest.raises(ValueError, match="kernel_type"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, kernel_type="invalid")
+    def test_kernel_invalid(self) -> None:
+        with pytest.raises(ValueError, match="kernel"):
+            Config(dim=64, heads=4, kernel="invalid")
 
-    def test_invalid_xsa_mode(self) -> None:
-        with pytest.raises(ValueError, match="xsa_mode"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, xsa_mode="invalid")
+    def test_mode_invalid(self) -> None:
+        with pytest.raises(ValueError, match="mode"):
+            Config(dim=64, heads=4, mode="invalid")
 
-    def test_invalid_preconditioner_type(self) -> None:
-        with pytest.raises(ValueError, match="preconditioner_type"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, preconditioner_type="invalid")
+    def test_precond_invalid(self) -> None:
+        with pytest.raises(ValueError, match="precond"):
+            Config(dim=64, heads=4, precond="invalid")
 
-    def test_pcg_max_iterations_zero(self) -> None:
-        with pytest.raises(ValueError, match="pcg_max_iterations"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, pcg_max_iterations=0)
+    def test_pcg_zero(self) -> None:
+        with pytest.raises(ValueError, match="pcg"):
+            Config(dim=64, heads=4, pcg=0)
 
-    def test_num_iterations_zero(self) -> None:
-        with pytest.raises(ValueError, match="num_iterations"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, num_iterations=0)
+    def test_drop_low(self) -> None:
+        with pytest.raises(ValueError, match="drop"):
+            Config(dim=64, heads=4, drop=-0.1)
 
-    def test_dropout_out_of_range_low(self) -> None:
-        with pytest.raises(ValueError, match="dropout"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, dropout=-0.1)
-
-    def test_dropout_out_of_range_high(self) -> None:
-        with pytest.raises(ValueError, match="dropout"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, dropout=1.1)
+    def test_drop_high(self) -> None:
+        with pytest.raises(ValueError, match="drop"):
+            Config(dim=64, heads=4, drop=1.1)
 
     def test_eps_zero(self) -> None:
         with pytest.raises(ValueError, match="eps"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, eps=0.0)
+            Config(dim=64, heads=4, eps=0.0)
 
-    def test_eps_negative(self) -> None:
+    def test_eps_neg(self) -> None:
         with pytest.raises(ValueError, match="eps"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, eps=-0.1)
+            Config(dim=64, heads=4, eps=-0.1)
 
-    def test_lambda_init_negative(self) -> None:
-        with pytest.raises(ValueError, match="lambda_init"):
-            XSA_LAKER_Config(d_model=64, num_heads=4, lambda_init=-1.0)
+    def test_lam_neg(self) -> None:
+        with pytest.raises(ValueError, match="lam"):
+            Config(dim=64, heads=4, lam=-1.0)
 
 
-class TestConfigDefaults:
+class TestConfigDefault:
     """Tests for config default values."""
 
-    def test_defaults(self) -> None:
-        cfg = XSA_LAKER_Config(d_model=64, num_heads=4)
-        assert cfg.dropout == 0.0
+    def test_default(self) -> None:
+        cfg = Config(dim=64, heads=4)
+        assert cfg.drop == 0.0
         assert cfg.eps == 1e-6
-        assert cfg.lambda_init == 3.0
-        assert cfg.kernel_type == "exp_attention"
-        assert cfg.xsa_mode == "subtract_projection"
-        assert cfg.preconditioner_type == "fast"
-        assert cfg.kernel_temperature == 1.0
-        assert cfg.kernel_symmetric is False
-        assert cfg.kernel_normalize_qk is True
-        assert cfg.precond_update_frequency == 1
-        assert cfg.pcg_tolerance == 1e-2
-        assert cfg.clip_abs == 1e6
+        assert cfg.lam == 3.0
+        assert cfg.kernel == "exp"
+        assert cfg.mode == "subtract"
+        assert cfg.precond == "fast"
+        assert cfg.temp == 1.0
+        assert cfg.symmetric is False
+        assert cfg.normalize is True
+        assert cfg.freq == 1
+        assert cfg.tol == 1e-2

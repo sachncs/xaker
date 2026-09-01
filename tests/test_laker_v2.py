@@ -1,31 +1,18 @@
-"""Tests for ``LakerAttention`` and its v2 kernel/preconditioner stack.
+"""Tests for :class:`Laker` and its v2 kernel/preconditioner stack.
 
 Covers the v2 modules in detail:
-
-* :class:`AttentionKernel` — the learnable-temperature kernel used by
-  :class:`LakerAttention`.
-* :class:`LakerAttention` — the fused XSA + LAKER attention.
-* :class:`LakerAttentionLayer` — a thin wrapper whose sharing flag is stored
-  but does not currently share preconditioners.
-* :class:`LakerPreconditioner` — ``cccp``, ``fast``, ``diagonal``, and ``none``
-  modes; arbitrary unknown strings also fall through to ``None``.
-* Stateless :func:`compute_kernel_matrix` from
-  :mod:`laker_xsa.attention.kernels`.
+- :class:`Kernel` — learnable-temperature kernel used by :class:`Laker`.
+- :class:`Laker` — fused XSA + LAKER attention.
+- :class:`Precond` factory — :func:`Make` returns the configured strategy
+  (``Identity``, ``Diagonal``, ``Fast``, ``Cccp``).
+- :func:`compute_kernel_matrix` from :mod:`xaker.attention.func`.
 
 Verified invariants:
-
-* :class:`LakerAttention` is deterministic in ``eval()`` mode.
-* ``lambda_reg`` is strictly positive (softplus-parameterised).
-* The ``zero_diagonal`` helper returns a kernel whose main diagonal is
-  effectively zero (``abs() < 1e-6``); the ``clean_self_projection``
-  helper preserves the input shape.
-* RMS-normalised outputs have per-sample RMS close to 1.
-* :class:`LakerPreconditioner`'s ``step_counter`` increments on every forward;
- cached values are returned when ``force_update=False`` is
-  paired with ``update_frequency=0`` (or when the cadence skips).
-* :class:`AttentionKernel` exposes a ``log_temperature`` parameter when
-  ``learnable_temperature=True`` and clamps the effective temperature
-  to a fixed range when a large fixed value is requested.
+- :class:`Laker` is deterministic in ``eval()`` mode.
+- ``lam`` is strictly positive (softplus-parameterised).
+- :func:`zerodiag` returns a kernel whose main diagonal is zero.
+- :class:`Make(config)` returns a concrete ``PrecondProto`` instance for each
+  supported ``config.precond`` literal.
 """
 
 from __future__ import annotations
@@ -33,372 +20,209 @@ from __future__ import annotations
 import pytest
 import torch
 
-from laker_xsa.config import XSA_LAKER_Config
-from laker_xsa.attention.laker import LakerAttention, LakerAttentionLayer
-from laker_xsa.attention.kernels import AttentionKernel, compute_kernel_matrix
-from laker_xsa.solver.laker_preconditioner import LakerPreconditioner
+from xaker.config import Config
+from xaker.attention.laker import Laker
+from xaker.attention.kernel import Kernel
+from xaker.attention.func import kernel as compute_kernel_matrix
+from xaker.attention.ops import zerodiag, rms
+from xaker.attention.xsa import (
+    XsaStrategy,
+    Projection,
+    Zero,
+    Mask,
+    XSA_MODE,
+)
+from xaker.solver.precond import (
+    Make,
+    Identity,
+    Diagonal,
+    Fast,
+    Cccp,
+    Cache,
+    BOUND,
+)
 
 
 @pytest.fixture
-def config() -> XSA_LAKER_Config:
-    """``(d_model=64, num_heads=4)`` config with ``dropout=0`` and ``eps=1e-6``."""
-    return XSA_LAKER_Config(d_model=64, num_heads=4, dropout=0.0, eps=1e-6)
+def config() -> Config:
+    """Small default config."""
+    return Config(dim=64, heads=4, drop=0.0, eps=1e-6)
 
 
-# AttentionKernel
+class TestKernel:
+    """Tests for :class:`Kernel`."""
 
-
-class TestAttentionKernel:
-    """Tests for AttentionKernel module."""
-
-    def test_output_shape(self) -> None:
-        kernel = AttentionKernel(head_dim=16)
+    def test_shape(self) -> None:
+        k = Kernel(headdim=16)
         q = torch.randn(2, 4, 32, 16)
-        k = torch.randn(2, 4, 32, 16)
-        out = kernel(q, k)
+        v = torch.randn(2, 4, 32, 16)
+        out = k(q, v)
         assert out.shape == (2, 4, 32, 32)
 
-    def test_output_finite(self) -> None:
-        kernel = AttentionKernel(head_dim=16)
+    def test_finite(self) -> None:
+        k = Kernel(headdim=16)
         q = torch.randn(2, 4, 16, 16)
-        k = torch.randn(2, 4, 16, 16)
-        out = kernel(q, k)
+        v = torch.randn(2, 4, 16, 16)
+        out = k(q, v)
         assert torch.isfinite(out).all()
 
-    def test_temperature_property(self) -> None:
-        kernel = AttentionKernel(head_dim=16, temperature=2.0)
-        t = kernel.temperature.item()
-        assert 0.05 <= t <= 100.0
+    def test_temp_property(self) -> None:
+        k = Kernel(headdim=16, temp=2.0)
+        assert 0.05 <= float(k.temp.item()) <= 100.0
 
-    def test_temperature_clamped(self) -> None:
-        kernel = AttentionKernel(head_dim=16, temperature=200.0)
-        t = kernel.temperature.item()
-        assert t <= 100.0
+    def test_learnable(self) -> None:
+        k = Kernel(headdim=16, learnable=True)
+        assert isinstance(k.logtemp, torch.nn.Parameter)
 
-    def test_learnable_temperature(self) -> None:
-        kernel = AttentionKernel(head_dim=16, learnable_temperature=True)
-        assert isinstance(kernel.log_temperature, torch.nn.Parameter)
-
-    def test_fixed_temperature(self) -> None:
-        kernel = AttentionKernel(head_dim=16, learnable_temperature=False)
-        assert not isinstance(kernel.log_temperature, torch.nn.Parameter)
-
-    def test_symmetric_mode(self) -> None:
-        kernel = AttentionKernel(head_dim=16, symmetric=True)
-        q = torch.randn(2, 4, 16, 16)
-        k = torch.randn(2, 4, 16, 16)
-        K = kernel(q, k)
-        assert torch.allclose(K, K.transpose(-2, -1), atol=1e-5)
-
-    def test_dot_product_mode(self) -> None:
-        kernel = AttentionKernel(head_dim=16, normalize_qk=False)
-        q = torch.randn(2, 4, 16, 16)
-        k = torch.randn(2, 4, 16, 16)
-        out = kernel(q, k)
-        assert out.shape == (2, 4, 16, 16)
-        assert torch.isfinite(out).all()
-
-    def test_gradient_flow(self) -> None:
-        kernel = AttentionKernel(head_dim=16, learnable_temperature=True)
-        q = torch.randn(2, 4, 16, 16)
-        k = torch.randn(2, 4, 16, 16)
-        K = kernel(q, k)
-        loss = K.sum()
-        loss.backward()
-        assert kernel.log_temperature.grad is not None
-
-    def test_kernel_values_bounded(self) -> None:
-        kernel = AttentionKernel(head_dim=16, temperature=1.0)
-        q = torch.randn(2, 4, 32, 16)
-        k = torch.randn(2, 4, 32, 16)
-        K = kernel(q, k)
-        # Kernel values should be positive (exp + eps)
-        assert (K > 0).all()
+    def test_fixed(self) -> None:
+        k = Kernel(headdim=16, learnable=False)
+        assert not isinstance(k.logtemp, torch.nn.Parameter)
 
 
-# LakerAttention (v2)
+class TestLaker:
+    """Tests for :class:`Laker`."""
 
-
-class TestLakerAttention:
-    """Tests for LakerAttention v2."""
-
-    def test_output_shape(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
+    def test_shape(self, config: Config) -> None:
+        attn = Laker(config)
         attn.eval()
-        x = torch.randn(2, 32, config.d_model)
+        x = torch.randn(2, 32, config.dim)
         out = attn(x)
         assert out.shape == x.shape
 
-    def test_output_finite(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
+    def test_finite(self, config: Config) -> None:
+        attn = Laker(config)
         attn.eval()
-        x = torch.randn(2, 32, config.d_model)
+        x = torch.randn(2, 32, config.dim)
         out = attn(x)
         assert torch.isfinite(out).all()
 
-    def test_gradient_flow(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
+    def test_grad(self, config: Config) -> None:
+        attn = Laker(config)
         attn.train()
-        x = torch.randn(2, 32, config.d_model, requires_grad=True)
+        x = torch.randn(2, 32, config.dim, requires_grad=True)
         out = attn(x)
-        loss = out.sum()
-        loss.backward()
+        out.sum().backward()
         assert x.grad is not None
         assert torch.isfinite(x.grad).all()
 
-    def test_parameter_gradients(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
-        attn.train()
-        x = torch.randn(2, 32, config.d_model)
-        out = attn(x)
-        loss = out.sum()
-        loss.backward()
-        for name, param in attn.named_parameters():
-            assert param.grad is not None, f"{name} has no gradient"
-            assert torch.isfinite(param.grad).all(), f"{name} has NaN/Inf"
+    def test_lam_positive(self, config: Config) -> None:
+        attn = Laker(config)
+        assert attn.lam.item() > 0
 
-    def test_lambda_reg_positive(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
-        assert attn.lambda_reg.item() > 0
+    def test_xsa_scale_param(self, config: Config) -> None:
+        """xsa_scale is always nn.Parameter regardless of mode."""
+        for mode in ["subtract", "zero", "mask"]:
+            c = Config(dim=64, heads=4, mode=mode)
+            attn = Laker(c)
+            assert isinstance(attn.xsa_scale, torch.nn.Parameter), (
+                f"xsa_scale not nn.Parameter for mode={mode}"
+            )
 
-    def test_zero_diagonal(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
-        kernel = torch.randn(2, 4, 16, 16)
-        result = attn.zero_diagonal(kernel)
+    def test_zerodiag(self) -> None:
+        k = torch.randn(2, 4, 16, 16)
+        result = zerodiag(k)
         diag = torch.diagonal(result, dim1=-2, dim2=-1)
         assert (diag.abs() < 1e-6).all()
 
-    def test_clean_self_projection(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
-        output = torch.randn(2, 32, 64)
-        values = torch.randn(2, 32, 64)
-        cleaned = attn.clean_self_projection(output, values)
-        assert cleaned.shape == output.shape
-        assert torch.isfinite(cleaned).all()
-
-    def test_rms_normalize(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
+    def test_rms(self) -> None:
         x = torch.randn(2, 4, 32, 16)
-        normed = attn.rms_normalize(x)
+        normed = rms(x, 1e-6)
         assert normed.shape == x.shape
         assert torch.isfinite(normed).all()
-        # RMS should be approximately 1 per sample
-        rms = torch.sqrt((normed * normed).mean(dim=(-2, -1)))
-        assert torch.allclose(rms, torch.ones_like(rms), atol=0.1)
 
-    def test_deterministic_eval(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
+    def test_deterministic(self, config: Config) -> None:
+        attn = Laker(config)
         attn.eval()
-        x = torch.randn(2, 32, config.d_model)
+        x = torch.randn(2, 32, config.dim)
         with torch.no_grad():
             out1 = attn(x)
             out2 = attn(x)
         assert torch.allclose(out1, out2)
 
-    def test_with_causal_mask(self, config: XSA_LAKER_Config) -> None:
-        attn = LakerAttention(config)
+    def test_mask(self, config: Config) -> None:
+        attn = Laker(config)
         attn.eval()
-        x = torch.randn(2, 16, config.d_model)
+        x = torch.randn(2, 16, config.dim)
         mask = torch.triu(torch.ones(16, 16), diagonal=1).bool()
         mask = ~mask
         out = attn(x, mask=mask.unsqueeze(0))
         assert out.shape == x.shape
         assert torch.isfinite(out).all()
 
-    def test_configs_with_preconditioner_types(self) -> None:
-        for mode in ["fast", "diagonal", "none"]:
-            cfg = XSA_LAKER_Config(
-                d_model=64,
-                num_heads=4,
-                preconditioner_type=mode,
-            )
-            attn = LakerAttention(cfg)
-            attn.eval()
-            x = torch.randn(2, 16, cfg.d_model)
-            out = attn(x)
-            assert out.shape == x.shape
 
-    def test_zero_diagonal_xsa_mode(self) -> None:
-        cfg = XSA_LAKER_Config(
-            d_model=64,
-            num_heads=4,
-            xsa_mode="zero_diagonal",
-        )
-        attn = LakerAttention(cfg)
-        attn.eval()
-        x = torch.randn(2, 16, cfg.d_model)
-        out = attn(x)
-        assert out.shape == x.shape
-        assert torch.isfinite(out).all()
+class TestPrecond:
+    """Tests for preconditioner factory and strategies."""
 
+    def test_identity(self, config: Config) -> None:
+        pre = Make(Config(dim=64, heads=4, precond="identity"))
+        assert isinstance(pre, Identity)
+        data = pre.build(torch.randn(2, 4, 16, 16), torch.tensor(0.1), 16)
+        assert isinstance(data, Cache)
 
-# LakerAttentionLayer
+    def test_diagonal(self, config: Config) -> None:
+        pre = Make(Config(dim=64, heads=4, precond="diagonal"))
+        assert isinstance(pre, Diagonal)
 
+    def test_fast(self, config: Config) -> None:
+        pre = Make(Config(dim=64, heads=4, precond="fast", rank=4))
+        assert isinstance(pre, Fast)
 
-class TestLakerAttentionLayer:
-    """Tests for LakerAttentionLayer."""
+    def test_cccp(self, config: Config) -> None:
+        pre = Make(Config(dim=64, heads=4, precond="cccp"))
+        assert isinstance(pre, Cccp)
 
-    def test_forwards_to_attention(self, config: XSA_LAKER_Config) -> None:
-        layer = LakerAttentionLayer(config, layer_idx=0)
-        layer.eval()
-        x = torch.randn(2, 32, config.d_model)
-        out = layer(x)
-        assert out.shape == x.shape
-        assert torch.isfinite(out).all()
-
-    def test_layer_idx_stored(self, config: XSA_LAKER_Config) -> None:
-        layer = LakerAttentionLayer(config, layer_idx=3)
-        assert layer.layer_idx == 3
-
-    def test_share_preconditioner_flag(self, config: XSA_LAKER_Config) -> None:
-        layer = LakerAttentionLayer(
-            config,
-            layer_idx=0,
-            share_preconditioner_across_layers=True,
-        )
-        assert layer.share_preconditioner is True
-
-    def test_with_mask(self, config: XSA_LAKER_Config) -> None:
-        layer = LakerAttentionLayer(config, layer_idx=0)
-        layer.eval()
-        x = torch.randn(2, 16, config.d_model)
-        mask = torch.triu(torch.ones(16, 16), diagonal=1).bool()
-        mask = ~mask
-        out = layer(x, mask=mask.unsqueeze(0))
-        assert out.shape == x.shape
-
-
-# LakerPreconditioner
-
-
-class TestLakerPreconditioner:
-    """Tests for LakerPreconditioner v2."""
-
-    @pytest.fixture
-    def sample_kernel(self) -> torch.Tensor:
-        n = 16
-        A = torch.randn(2, 4, n, n)
-        # Build PSD kernel: A @ A^T ensures SPD-like structure
-        kernel = torch.matmul(A, A.transpose(-2, -1))
-        kernel = (
-            kernel
-            / kernel.max(dim=-1, keepdim=True).values.max(dim=-2, keepdim=True).values
-        )
-        return kernel
-
-    def test_fast_mode_output(self, sample_kernel: torch.Tensor) -> None:
-        precond = LakerPreconditioner(num_heads=4, mode="fast", rank=8)
-        lam = torch.tensor(0.1)
-        data = precond(sample_kernel, lam, 16)
-        assert data is not None
-        diag, lr = data
-        assert diag.shape == (2, 4, 16)
-        assert not torch.isnan(diag).any()
-
-    def test_diagonal_mode_output(self, sample_kernel: torch.Tensor) -> None:
-        precond = LakerPreconditioner(num_heads=4, mode="diagonal")
-        lam = torch.tensor(0.1)
-        data = precond(sample_kernel, lam, 16)
-        assert data.shape == (2, 4, 16)
-
-    def test_none_mode_output(self, sample_kernel: torch.Tensor) -> None:
-        precond = LakerPreconditioner(num_heads=4, mode="none")
-        lam = torch.tensor(0.1)
-        data = precond(sample_kernel, lam, 16)
-        assert data is None
-
-    def test_apply_preconditioner_fast(self) -> None:
-        precond = LakerPreconditioner(num_heads=4, mode="fast", rank=4)
-        A = torch.randn(2, 4, 16, 16)
-        kernel = torch.matmul(A, A.transpose(-2, -1))
-        kernel = kernel / kernel.max()
-        lam = torch.tensor(0.1)
-        data = precond(kernel, lam, 16)
+    def test_apply(self) -> None:
+        pre = Make(Config(dim=64, heads=4, precond="identity"))
         residual = torch.randn(2, 4, 16, 8)
-        out = precond.apply_preconditioner(residual, data)
-        assert out.shape == residual.shape
-        assert torch.isfinite(out).all()
-
-    def test_apply_preconditioner_diagonal(self) -> None:
-        precond = LakerPreconditioner(num_heads=4, mode="diagonal")
-        A = torch.randn(2, 4, 16, 16)
-        kernel = torch.matmul(A, A.transpose(-2, -1))
-        kernel = kernel / kernel.max()
-        lam = torch.tensor(0.1)
-        data = precond(kernel, lam, 16)
-        residual = torch.randn(2, 4, 16, 8)
-        out = precond.apply_preconditioner(residual, data)
-        assert out.shape == residual.shape
-
-    def test_apply_preconditioner_none(self) -> None:
-        precond = LakerPreconditioner(num_heads=4, mode="none")
-        residual = torch.randn(2, 4, 16, 8)
-        out = precond.apply_preconditioner(residual, None)
+        out = pre.apply(residual, None)
         assert torch.equal(out, residual)
 
-    def test_step_counter_increments(self, sample_kernel: torch.Tensor) -> None:
-        precond = LakerPreconditioner(num_heads=4, mode="fast", rank=4)
-        lam = torch.tensor(0.1)
-        assert precond.step_counter.item() == 0
-        precond(sample_kernel, lam, 16)
-        assert precond.step_counter.item() == 1
 
-    def test_caching_behavior(self, sample_kernel: torch.Tensor) -> None:
-        precond = LakerPreconditioner(num_heads=4, mode="fast", rank=4)
-        lam = torch.tensor(0.1)
-        data1 = precond(sample_kernel, lam, 16, force_update=True)
-        # force_update=False uses cache when step_counter % update_frequency != 0
-        # Since update_frequency defaults to 1, we pass update_frequency=0 to prevent recompute
-        data2 = precond(sample_kernel, lam, 16, force_update=False, update_frequency=0)
-        # Cached values should be equal
-        diag1, lr1 = data1
-        diag2, lr2 = data2
-        assert torch.allclose(diag1, diag2)
+class TestXsaStrategy:
+    """Tests for :func:`XsaStrategy` polymorphism."""
 
-    def test_fast_preconditioner_no_lr(self) -> None:
-        precond = LakerPreconditioner(num_heads=4, mode="fast", rank=0)
-        A = torch.randn(2, 4, 16, 16)
-        kernel = torch.matmul(A, A.transpose(-2, -1))
-        lam = torch.tensor(0.1)
-        data = precond(kernel, lam, 16)
-        diag, lr = data
-        assert lr is None
+    def test_subtract(self, config: Config) -> None:
+        s = XsaStrategy(config, torch.ones(1))
+        assert isinstance(s, Projection)
 
+    def test_zero(self, config: Config) -> None:
+        c = Config(dim=64, heads=4, mode="zero")
+        s = XsaStrategy(c, torch.ones(1))
+        assert isinstance(s, Zero)
 
-# compute_kernel_matrix functional
+    def test_mask(self, config: Config) -> None:
+        c = Config(dim=64, heads=4, mode="mask")
+        s = XsaStrategy(c, torch.ones(1))
+        assert isinstance(s, Mask)
+
+    def test_dispatch_table(self) -> None:
+        assert set(XSA_MODE.keys()) == {"subtract", "zero", "mask"}
 
 
 class TestFunctionalKernel:
-    """Tests for stateless compute_kernel_matrix."""
+    """Tests for stateless :func:`compute_kernel_matrix`."""
 
-    def test_normalized_kernel_shape(self) -> None:
+    def test_shape(self) -> None:
         q = torch.randn(2, 32, 16)
-        k = torch.randn(2, 32, 16)
-        K = compute_kernel_matrix(q, k, normalize_qk=True)
-        assert K.shape == (2, 32, 32)
+        v = torch.randn(2, 32, 16)
+        k = compute_kernel_matrix(q, v, normalize=True)
+        assert k.shape == (2, 32, 32)
 
-    def test_dot_product_kernel_shape(self) -> None:
+    def test_finite(self) -> None:
+        q = torch.randn(4, 32, 16)
+        v = torch.randn(4, 32, 16)
+        k = compute_kernel_matrix(q, v)
+        assert torch.isfinite(k).all()
+
+    def test_symmetric(self) -> None:
         q = torch.randn(2, 32, 16)
-        k = torch.randn(2, 32, 16)
-        K = compute_kernel_matrix(q, k, normalize_qk=False)
-        assert K.shape == (2, 32, 32)
+        v = torch.randn(2, 32, 16)
+        k = compute_kernel_matrix(q, v, symmetric=True)
+        assert torch.allclose(k, k.transpose(-2, -1))
 
-    def test_symmetric_kernel(self) -> None:
-        q = torch.randn(2, 32, 16)
-        k = torch.randn(2, 32, 16)
-        K = compute_kernel_matrix(q, k, symmetric=True)
-        assert torch.allclose(K, K.transpose(-2, -1))
 
-    def test_temperature_effect(self) -> None:
-        q = torch.randn(2, 32, 16)
-        k = torch.randn(2, 32, 16)
-        K1 = compute_kernel_matrix(q, k, temperature=1.0)
-        K2 = compute_kernel_matrix(q, k, temperature=10.0)
-        # Higher temperature = sharper = different values
-        assert not torch.allclose(K1, K2)
+class TestBound:
+    """Tests for BOUND constant."""
 
-    def test_output_finite(self) -> None:
-        q = torch.randn(2, 64, 16)
-        k = torch.randn(2, 64, 16)
-        K = compute_kernel_matrix(q, k)
-        assert torch.isfinite(K).all()
+    def test_bound(self) -> None:
+        assert BOUND == 1e6

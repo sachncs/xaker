@@ -1,9 +1,9 @@
 #!/bin/bash
-# Setup script for LAKER-XSA development environment
+# Setup script for XAKER development environment
 
 set -e
 
-echo "Setting up LAKER-XSA development environment..."
+echo "Setting up XAKER development environment..."
 
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
@@ -19,7 +19,7 @@ echo "Upgrading pip..."
 pip install --upgrade pip
 
 # Install package in editable mode with development dependencies
-echo "Installing LAKER-XSA with development dependencies..."
+echo "Installing XAKER with development dependencies..."
 pip install -e ".[dev,bench,train]"
 
 # Run tests to verify installation

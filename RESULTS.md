@@ -1,10 +1,10 @@
-# LAKER-XSA Benchmark Results
+# XAKER Benchmark Results
 
 **Date:** 2026-04-30
 
 ## Summary
 
-The LAKER-XSA implementation is **mathematically correct** and **production-ready**, but shows **no accuracy benefit** over standard attention on the tested tasks, with a consistent **3-7x slowdown**.
+The XAKER implementation is **mathematically correct** and **production-ready**, but shows **no accuracy benefit** over standard attention on the tested tasks, with a consistent **3-7x slowdown**.
 
 ---
 

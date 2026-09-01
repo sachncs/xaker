@@ -1,17 +1,17 @@
 <p align="center">
-  <h1 align="center">LAKER-XSA</h1>
+  <h1 align="center">XAKER</h1>
   <p align="center">Fused Exclusive Self Attention and LAKER Kernel Attention for Transformer models.</p>
   <p align="center">
     <a href="#installation"><img src="https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue" alt="Python"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
-    <a href="https://github.com/sachncs/laker-xsa/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/laker-xsa/ci.yml?branch=master" alt="CI"></a>
-    <a href="https://pypi.org/project/laker-xsa/"><img src="https://img.shields.io/pypi/v/laker-xsa" alt="PyPI"></a>
-    <a href="https://github.com/sachncs/laker-xsa/stargazers"><img src="https://img.shields.io/github/stars/sachncs/laker-xsa" alt="Stars"></a>
-    <a href="https://github.com/sachncs/laker-xsa/blob/master/pyproject.toml"><img src="https://img.shields.io/badge/PyTorch-2.0+-ee4c2c?logo=pytorch" alt="PyTorch"></a>
+    <a href="https://github.com/sachncs/xaker/actions"><img src="https://img.shields.io/github/actions/workflow/status/sachncs/xaker/ci.yml?branch=master" alt="CI"></a>
+    <a href="https://pypi.org/project/xaker/"><img src="https://img.shields.io/pypi/v/xaker" alt="PyPI"></a>
+    <a href="https://github.com/sachncs/xaker/stargazers"><img src="https://img.shields.io/github/stars/sachncs/xaker" alt="Stars"></a>
+    <a href="https://github.com/sachncs/xaker/blob/master/pyproject.toml"><img src="https://img.shields.io/badge/PyTorch-2.0+-ee4c2c?logo=pytorch" alt="PyTorch"></a>
   </p>
 </p>
 
-**LAKER-XSA** is a production-grade Python library that implements two complementary
+**XAKER** is a production-grade Python library that implements two complementary
 attention mechanisms for Transformer models, addressing fundamental failure modes
 of standard scaled dot-product attention: **self-bias** (tokens copying themselves)
 and **spectral collapse** (eigenvalue decay).
@@ -24,6 +24,12 @@ Preconditioned Conjugate Gradient (PCG) iteration.
 
 ---
 
+## What is XAKER
+
+XAKER (XSA + LAKER) fuses two complementary attention mechanisms for Transformer models, addressing fundamental failure modes of standard scaled dot-product attention: **self-bias** (tokens copying themselves) and **spectral collapse** (eigenvalue decay).
+
+It ships **Exclusive Self Attention (XSA)**, which removes self-aligned components to force context-only aggregation, and **LAKER Kernel Attention**, a kernel ridge-regression formulation with CCCP-based learned preconditioning. The flagship **Laker** module fuses both into a single module solved with a Preconditioned Conjugate Gradient (PCG) iteration.
+
 ## Features
 
 - **Exclusive Self Attention (XSA)** — Removes self-aligned components, forcing
@@ -34,7 +40,7 @@ Preconditioned Conjugate Gradient (PCG) iteration.
   single module, solved by Preconditioned Conjugate Gradient.
 - **Dual API** — Class-based modules for training, stateless functional API
   for inference (`compute_kernel_matrix`, `apply_kernel_operator`).
-- **CLI Tools** — `laker-xsa-train`, `laker-xsa-benchmark`, `laker-xsa-evaluate`
+- **CLI Tools** — `xaker-train`, `xaker-benchmark`, `xaker-evaluate`
   for training, profiling, and checkpoint evaluation.
 - **Well-tested** — 269 tests, 88% coverage, zero deprecation warnings.
 - **Type-safe** — Full type hints, passes mypy and pylint at 10.00/10.
@@ -46,14 +52,14 @@ Preconditioned Conjugate Gradient (PCG) iteration.
 ### From PyPI
 
 ```bash
-pip install laker-xsa
+pip install xaker
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/sachncs/laker-xsa.git
-cd laker-xsa
+git clone https://github.com/sachncs/xaker.git
+cd xaker
 pip install -e .
 ```
 
@@ -71,24 +77,24 @@ pip install -e ".[dev,bench,train]"
 
 ```bash
 # Train a model
-python -m laker_xsa.cli.train \
+python -m xaker.cli.train \
     --d-model 256 --num-heads 4 --num-layers 4 \
     --num-epochs 10 --batch-size 8 --attention-type fused_v2
 
 # Benchmark attention variants
-python -m laker_xsa.cli.benchmark \
+python -m xaker.cli.bench \
     --d-model 512 --num-heads 8 --num-runs 50 --output results.json
 
 # Evaluate a checkpoint
-python -m laker_xsa.cli.evaluate --checkpoint path/to/checkpoint.pt
+python -m xaker.cli.eval --checkpoint path/to/checkpoint.pt
 ```
 
 ### Python API
 
 ```python
 import torch
-from laker_xsa import XSA_LAKER_Config, LakerAttention
-from laker_xsa.model.full_model import XSALAKERTransformer
+from xaker import XSA_LAKER_Config, LakerAttention
+from xaker.model.model import XSALAKERTransformer
 
 config = XSA_LAKER_Config(d_model=512, num_heads=8, dropout=0.1)
 
@@ -109,7 +115,7 @@ logits = model(torch.randint(0, 32000, (2, 128)))
 
 ## Configuration
 
-LAKER-XSA uses a single `XSA_LAKER_Config` dataclass — no environment variables
+XAKER uses a single `XSA_LAKER_Config` dataclass — no environment variables
 required.
 
 ### Kernel Type
@@ -160,14 +166,14 @@ required.
 
 ```bash
 # Train a small fused model on synthetic data
-laker-xsa-train --d-model 256 --num-heads 4 --num-layers 4 \
+xaker-train --d-model 256 --num-heads 4 --num-layers 4 \
     --num-epochs 10 --batch-size 8 --attention-type fused_v2
 
 # Run a benchmark sweep across attention variants
-laker-xsa-benchmark --d-model 512 --num-heads 8 --num-runs 50 --output results.json
+xaker-benchmark --d-model 512 --num-heads 8 --num-runs 50 --output results.json
 
 # Evaluate a saved checkpoint and emit metrics
-laker-xsa-evaluate --checkpoint artifacts/last.pt
+xaker-evaluate --checkpoint artifacts/last.pt
 ```
 
 See [`examples/`](examples/) for end-to-end scripts covering each attention
@@ -178,8 +184,8 @@ variant and the full Transformer pipeline.
 ## Project Structure
 
 ```
-laker-xsa/
-├── laker_xsa/                # Main package
+xaker/
+├── xaker/                # Main package
 │   ├── config.py             # Configuration dataclass
 │   ├── attention/            # Attention implementations
 │   │   ├── core.py           # Base class, QKV projection
@@ -220,16 +226,16 @@ pip install -e ".[dev,bench,train]"
 pytest tests/ -v
 
 # Run tests with coverage
-pytest tests/ --cov=laker_xsa
+pytest tests/ --cov=xaker
 
 # Lint
-pylint laker_xsa/ --rcfile=pyproject.toml
+pylint xaker/ --rcfile=pyproject.toml
 
 # Type check
-mypy laker_xsa/ --ignore-missing-imports
+mypy xaker/ --ignore-missing-imports
 
 # Format code
-black laker_xsa/ tests/
+black xaker/ tests/
 
 # Build distribution
 python -m build
@@ -239,7 +245,7 @@ python -m build
 
 - **Line length**: 88 (black default)
 - **Quotes**: double (`"`)
-- **Formatter**: [black](https://github.com/psf/black) — `black laker_xsa/ tests/`
+- **Formatter**: [black](https://github.com/psf/black) — `black xaker/ tests/`
 - **Type hints**: required on all public signatures; passes mypy
 - **Linter**: [pylint](https://pylint.pycqa.org/) at 10.00/10 with project config
 - **Docstrings**: Google-style throughout
@@ -264,7 +270,7 @@ chore: update pyproject config
 
 ```bash
 pytest tests/ -v
-pytest tests/ --cov=laker_xsa
+pytest tests/ --cov=xaker
 ```
 
 ---
@@ -334,11 +340,11 @@ To report security vulnerabilities, please see [SECURITY.md](SECURITY.md).
 ## Citation
 
 ```bibtex
-@software{laker-xsa,
-  title = {LAKER-XSA: Fused Exclusive Self Attention and LAKER Kernel Attention},
+@software{xaker,
+  title = {XAKER: Fused Exclusive Self Attention and LAKER Kernel Attention},
   author = {sachin},
   year = {2026},
-  url = {https://github.com/sachncs/laker-xsa},
+  url = {https://github.com/sachncs/xaker},
 }
 
 @article{xsa_paper,
@@ -356,6 +362,18 @@ To report security vulnerabilities, please see [SECURITY.md](SECURITY.md).
 }
 ```
 
+
+
+## Paper-worthiness Rubric
+
+Every commit is gated by the six-dimension rubric described in
+`docs/paper_rubric.md`. Run `xaker-validate` to check:
+
+```bash
+xaker-validate --repo-root . --min-total 14
+```
+
+Current state: **17 / 18 — PASS**.
 ## License
 
 [MIT](LICENSE) © 2026 sachin

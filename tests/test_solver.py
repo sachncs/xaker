@@ -1,9 +1,6 @@
 """Tests for the solver stack.
 
-Covers the standalone position-based ``LearnedPreconditioner``, the PCG-style
-solver used by v2 attention, and the regularized kernel operator. Tests check
-initial factor shapes/positivity, identity and PSD-system cases, and callback
-integration; they do not establish convergence for arbitrary systems.
+Covers the PCG-style solver and the regularized kernel operator.
 """
 
 from __future__ import annotations
@@ -11,143 +8,53 @@ from __future__ import annotations
 import pytest
 import torch
 
-from laker_xsa.config import XSA_LAKER_Config
-from laker_xsa.solver.preconditioner import LearnedPreconditioner
-from laker_xsa.solver.conjugate_gradient import pcg_solve, apply_kernel_operator
+from xaker.config import Config
+from xaker.solver.cg import pcg, op
 
 
 @pytest.fixture
-def config() -> XSA_LAKER_Config:
-    """``(d_model=64, num_heads=4, head_dim=16, preconditioner_rank=4)`` config."""
-    return XSA_LAKER_Config(
-        d_model=64,
-        num_heads=4,
-        head_dim=16,
-        preconditioner_rank=4,
-    )
+def config() -> Config:
+    """(dim=64, heads=4, headdim=16, rank=4) config."""
+    return Config(dim=64, heads=4, headdim=16, rank=4)
 
 
-class TestLearnedPreconditioner:
-    """Tests for LearnedPreconditioner."""
+class TestCg:
+    """Tests for the PCG-style solver."""
 
-    def test_output_shapes(self, config: XSA_LAKER_Config) -> None:
-        """Test preconditioner output shapes."""
-        precond = LearnedPreconditioner(config)
-        batch, seq_len = 2, 32
-
-        kernel_diag = torch.randn(batch, config.num_heads, seq_len)
-        diag_precond, lr_precond = precond(kernel_diag, seq_len)
-
-        assert diag_precond.shape == (batch, config.num_heads, seq_len)
-        assert lr_precond is not None
-        assert lr_precond.shape == (
-            batch,
-            config.num_heads,
-            seq_len,
-            config.preconditioner_rank,
-        )
-
-    def test_output_positive(self, config: XSA_LAKER_Config) -> None:
-        """Test that diagonal preconditioner is positive."""
-        precond = LearnedPreconditioner(config)
-        batch, seq_len = 2, 32
-
-        kernel_diag = torch.randn(batch, config.num_heads, seq_len)
-        diag_precond, _ = precond(kernel_diag, seq_len)
-
-        assert (diag_precond > 0).all()
-
-    def test_apply_precondition(self, config: XSA_LAKER_Config) -> None:
-        """Test applying preconditioner to residual."""
-        precond = LearnedPreconditioner(config)
-        batch, seq_len = 2, 32
-
-        kernel_diag = torch.randn(batch, config.num_heads, seq_len)
-        diag_precond, lr_precond = precond(kernel_diag, seq_len)
-
-        residual = torch.randn(batch, config.num_heads, seq_len, config.head_dim)
-        precond_residual = precond.apply_precondition(
-            residual, diag_precond, lr_precond
-        )
-
-        assert precond_residual.shape == residual.shape
-        assert torch.isfinite(precond_residual).all()
-
-    def test_no_low_rank(self) -> None:
-        """Test preconditioner without low-rank factor."""
-        config = XSA_LAKER_Config(
-            d_model=64,
-            num_heads=4,
-            preconditioner_rank=None,
-        )
-        precond = LearnedPreconditioner(config)
-        batch, seq_len = 2, 32
-
-        kernel_diag = torch.randn(batch, config.num_heads, seq_len)
-        diag_precond, lr_precond = precond(kernel_diag, seq_len)
-
-        assert diag_precond.shape == (batch, config.num_heads, seq_len)
-        assert lr_precond is None
-
-
-class TestConjugateGradient:
-    """Tests for conjugate gradient solver."""
-
-    def test_cg_convergence(self) -> None:
-        """Test CG converges on simple system."""
-        batch, num_heads, seq_len, head_dim = 1, 2, 16, 8
-
-        # Create positive definite kernel
-        A = torch.randn(batch, num_heads, seq_len, seq_len)
-        kernel = torch.matmul(A, A.transpose(-2, -1))  # K = A @ A^T is PSD
-
-        b = torch.randn(batch, num_heads, seq_len, head_dim)
-
-        x = pcg_solve(
-            kernel, b, lambda_reg=torch.tensor(0.1), max_iterations=100, tolerance=1e-6
-        )
-
-        # Check solution quality
-        residual = b - apply_kernel_operator(kernel, x, torch.tensor(0.1))
-        residual_norm = residual.norm().item()
-
-        assert residual_norm < 1.0  # Should converge reasonably
-
-    def test_cg_with_preconditioner(self) -> None:
-        """Test CG with preconditioner."""
-        batch, num_heads, seq_len, head_dim = 1, 2, 16, 8
-
-        A = torch.randn(batch, num_heads, seq_len, seq_len)
+    def test_converge(self) -> None:
+        """pcg converges on a PSD system."""
+        batch, heads, length, headdim = 1, 2, 16, 8
+        A = torch.randn(batch, heads, length, length)
         kernel = torch.matmul(A, A.transpose(-2, -1))
-        b = torch.randn(batch, num_heads, seq_len, head_dim)
+        b = torch.randn(batch, heads, length, headdim)
+        result = pcg(kernel, b, lam=torch.tensor(0.1), iters=100, tol=1e-6)
+        assert result.converged
+        residual = b - op(kernel, result.x, torch.tensor(0.1))
+        assert residual.norm().item() < 1.0
 
-        # Simple diagonal preconditioner
-        def apply_precond(r: torch.Tensor, data: torch.Tensor) -> torch.Tensor:
+    def test_apply(self) -> None:
+        """pcg with a preconditioner callback stays finite."""
+        batch, heads, length, headdim = 1, 2, 16, 8
+        A = torch.randn(batch, heads, length, length)
+        kernel = torch.matmul(A, A.transpose(-2, -1))
+        b = torch.randn(batch, heads, length, headdim)
+
+        def apply_precond(r, data):
             return r * data
 
-        precond_data = torch.tensor(0.1)
-
-        x = pcg_solve(
-            kernel,
-            b,
-            lambda_reg=torch.tensor(0.1),
-            max_iterations=100,
-            tolerance=1e-6,
-            precond_data=precond_data,
-            apply_preconditioner=apply_precond,
+        result = pcg(
+            kernel, b, lam=torch.tensor(0.1),
+            iters=100, tol=1e-6,
+            precond_data=torch.tensor(0.1),
+            apply=apply_precond,
         )
+        assert torch.isfinite(result.x).all()
 
-        assert torch.isfinite(x).all()
-
-    def test_cg_zero_initial(self) -> None:
-        """Test CG with zero initial guess."""
-        batch, num_heads, seq_len, head_dim = 1, 1, 8, 4
-
-        kernel = torch.eye(seq_len).unsqueeze(0).unsqueeze(0) * 2.0
-        b = torch.ones(batch, num_heads, seq_len, head_dim)
-
-        x = pcg_solve(kernel, b, lambda_reg=torch.tensor(0.0), x0=None)
-
-        # For K = 2I and b = 1, solution should be x = 0.5
+    def test_zero(self) -> None:
+        """pcg with x0=None on K=2I converges to x=0.5."""
+        batch, heads, length, headdim = 1, 1, 8, 4
+        kernel = torch.eye(length).unsqueeze(0).unsqueeze(0) * 2.0
+        b = torch.ones(batch, heads, length, headdim)
+        result = pcg(kernel, b, lam=torch.tensor(0.0), x0=None)
         expected = torch.ones_like(b) * 0.5
-        assert torch.allclose(x, expected, atol=1e-4)
+        assert torch.allclose(result.x, expected, atol=1e-4)

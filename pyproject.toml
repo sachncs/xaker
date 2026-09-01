@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "laker-xsa"
-version = "0.2.3"
+name = "xaker"
+version = "0.4.0"
 description = "Fused Exclusive Self Attention (XSA) and LAKER-style Kernel Attention"
 readme = "README.md"
 license = {text = "MIT"}
@@ -40,6 +40,7 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    "pytest-randomly>=3.0.0",
     "pylint>=2.17.0",
     "black>=23.0.0",
     "mypy>=1.0.0",
@@ -47,21 +48,28 @@ dev = [
 bench = [
     "matplotlib>=3.5.0",
     "pandas>=1.4.0",
+    "pyyaml>=6.0",
 ]
 train = [
     "tqdm>=4.65.0",
 ]
+paper = [
+    "matplotlib>=3.5.0",
+    "pandas>=1.4.0",
+    "pyyaml>=6.0",
+]
 
 [project.urls]
-Homepage = "https://github.com/sachncs/laker-xsa"
-Repository = "https://github.com/sachncs/laker-xsa.git"
-Issues = "https://github.com/sachncs/laker-xsa/issues"
-Changelog = "https://github.com/sachncs/laker-xsa/blob/master/CHANGELOG.md"
+Homepage = "https://github.com/sachncs/xaker"
+Repository = "https://github.com/sachncs/xaker.git"
+Issues = "https://github.com/sachncs/xaker/issues"
+Changelog = "https://github.com/sachncs/xaker/blob/master/CHANGELOG.md"
 
 [project.scripts]
-laker-xsa-train = "laker_xsa.cli.train:main"
-laker-xsa-evaluate = "laker_xsa.cli.evaluate:main"
-laker-xsa-benchmark = "laker_xsa.cli.benchmark:main"
+xaker-train = "xaker.cli.train:main"
+xaker-eval = "xaker.cli.eval:main"
+xaker-bench = "xaker.cli.bench:main"
+xaker-validate = "xaker.cli.validate:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -78,7 +86,7 @@ disallow_untyped_defs = false
 check_untyped_defs = true
 
 [tool.pylint.main]
-ignore = ["_legacy.py", "attention_kernel.py", "kernel_attention.py", "standard_attention.py", "xsa_attention.py", "fused_attention_v2.py"]
+ignore = []
 
 [tool.pylint.format]
 max-line-length = 120
@@ -99,4 +107,10 @@ disable = [
 testpaths = ["tests"]
 python_files = "test_*.py"
 python_functions = "test_*"
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "rubric: paper-worthiness rubric gating",
+    "slow: long-running benchmark/scaling tests",
+    "property: property-based tests",
+    "bench: benchmark execution tests",
+]

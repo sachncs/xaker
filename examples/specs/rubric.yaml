@@ -1,0 +1,9 @@
+kind: rubric
+lengths: [16]
+dim: 32
+heads: 2
+batch: 2
+kinds: [standard, xsa, fused]
+warmup: 1
+runs: 1
+seeds: [0]

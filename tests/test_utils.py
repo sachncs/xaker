@@ -1,13 +1,10 @@
-"""Tests for utility helpers (masks, shapes, seeding).
+"""Tests for utility helpers (masks, shape check, seeding).
 
-Covers :func:`create_causal_mask` (lower-triangular ``(1, seq_len,
-seq_len)``, honours ``device``), :func:`create_padding_mask`
-(``(batch, 1, 1, seq_len)`` with ``True`` on valid tokens; ``2D``
-enforcement raises :class:`ValueError`), :func:`verify_tensor_shapes`
-(``(None, ...)`` wildcards, ``ValueError`` on mismatch), and
-:func:`set_seed` / :func:`get_rng_states` / :func:`set_rng_states`
-(reproducible across ``python`` / ``numpy`` / ``torch``; ``KeyError`` on
-missing required keys).
+Covers :func:`causal` (lower-triangular ``(1, seq_len, seq_len)``),
+:func:`padding` (``(batch, 1, 1, seq_len)`` with valid tokens; ``2D``
+enforcement raises :class:`ValueError`), :func:`shape` (``(None, ...)``
+wildcards, :class:`ValueError` on mismatch), and :func:`seed` /
+:func:`snapshot` / :func:`restore` round-trip.
 """
 
 from __future__ import annotations
@@ -15,24 +12,24 @@ from __future__ import annotations
 import pytest
 import torch
 
-from laker_xsa.utils.tensor_ops import (
-    create_causal_mask,
-    create_padding_mask,
-    verify_tensor_shapes,
+from xaker.utils.ops import (
+    causal,
+    padding,
+    shape,
 )
-from laker_xsa.utils.seed import set_seed, get_rng_states, set_rng_states
+from xaker.utils.rng import seed, snapshot, restore
 
 
-class TestCreateCausalMask:
-    """Tests for create_causal_mask."""
+class TestCausal:
+    """Tests for :func:`causal`."""
 
     @pytest.mark.parametrize("seq_len", [1, 4, 16, 64])
     def test_shape(self, seq_len: int) -> None:
-        mask = create_causal_mask(seq_len)
+        mask = causal(seq_len)
         assert mask.shape == (1, seq_len, seq_len)
 
-    def test_lower_triangular(self) -> None:
-        mask = create_causal_mask(4)
+    def test_lower(self) -> None:
+        mask = causal(4)
         expected = torch.tensor(
             [
                 [True, False, False, False],
@@ -43,113 +40,104 @@ class TestCreateCausalMask:
         )
         assert torch.equal(mask[0], expected)
 
-    def test_on_device(self) -> None:
+    def test_device(self) -> None:
         if torch.cuda.is_available():
-            mask = create_causal_mask(4, device=torch.device("cuda"))
+            mask = causal(4, device=torch.device("cuda"))
             assert mask.device.type == "cuda"
 
 
-class TestCreatePaddingMask:
-    """Tests for create_padding_mask."""
+class TestPadding:
+    """Tests for :func:`padding`."""
 
     def test_shape(self) -> None:
-        padding = torch.tensor([[True, False, False, True]])
-        mask = create_padding_mask(padding)
+        pm = torch.tensor([[True, False, False, True]])
+        mask = padding(pm)
         assert mask.shape == (1, 1, 1, 4)
 
-    def test_padding_positions_false(self) -> None:
-        padding = torch.tensor([[True, False, False, True]])
-        mask = create_padding_mask(padding)
-        # Position 0 is padding → should be False (ignored)
+    def test_padding_false(self) -> None:
+        pm = torch.tensor([[True, False, False, True]])
+        mask = padding(pm)
         assert not mask[0, 0, 0, 0].item()
-        # Position 1 is valid → should be True
         assert mask[0, 0, 0, 1].item()
 
     def test_no_padding(self) -> None:
-        padding = torch.tensor([[False, False, False, False]])
-        mask = create_padding_mask(padding)
+        pm = torch.tensor([[False, False, False, False]])
+        mask = padding(pm)
         assert mask.all()
 
     def test_all_padding(self) -> None:
-        padding = torch.tensor([[True, True, True, True]])
-        mask = create_padding_mask(padding)
+        pm = torch.tensor([[True, True, True, True]])
+        mask = padding(pm)
         assert not mask.any()
 
-    def test_batch_multiple(self) -> None:
-        padding = torch.tensor(
-            [
-                [True, False, False],
-                [False, True, False],
-            ]
-        )
-        mask = create_padding_mask(padding)
+    def test_batch(self) -> None:
+        pm = torch.tensor([[True, False, False], [False, True, False]])
+        mask = padding(pm)
         assert mask.shape == (2, 1, 1, 3)
 
-    def test_invalid_dim_raises(self) -> None:
+    def test_invalid(self) -> None:
         with pytest.raises(ValueError, match="2D"):
-            create_padding_mask(torch.randn(1, 1, 4).bool())
+            padding(torch.randn(1, 1, 4).bool())
 
 
-class TestVerifyTensorShapes:
-    """Tests for verify_tensor_shapes."""
+class TestShape:
+    """Tests for :func:`shape`."""
 
-    def test_matching_shapes(self) -> None:
+    def test_match(self) -> None:
         x = torch.randn(2, 128, 512)
-        assert verify_tensor_shapes(x, (2, 128, 512)) is True
+        assert shape(x, (2, 128, 512)) is True
 
-    def test_with_None_wildcards(self) -> None:
+    def test_wildcards(self) -> None:
         x = torch.randn(2, 128, 512)
-        assert verify_tensor_shapes(x, (None, 128, 512)) is True
-        assert verify_tensor_shapes(x, (None, None, None)) is True
-        assert verify_tensor_shapes(x, (2, None, 512)) is True
+        assert shape(x, (None, 128, 512)) is True
+        assert shape(x, (None, None, None)) is True
+        assert shape(x, (2, None, 512)) is True
 
-    def test_mismatch_dim_count_raises(self) -> None:
+    def test_mismatch_count(self) -> None:
         x = torch.randn(2, 128, 512)
         with pytest.raises(ValueError, match="dimensions"):
-            verify_tensor_shapes(x, (2, 128))
+            shape(x, (2, 128))
 
-    def test_mismatch_dim_value_raises(self) -> None:
+    def test_mismatch_value(self) -> None:
         x = torch.randn(2, 128, 512)
         with pytest.raises(ValueError, match="dimension"):
-            verify_tensor_shapes(x, (2, 64, 512))
+            shape(x, (2, 64, 512))
 
-    def test_None_does_not_trigger_mismatch(self) -> None:
+    def test_none_ok(self) -> None:
         x = torch.randn(5, 100, 200)
-        assert verify_tensor_shapes(x, (None, None, 200)) is True
+        assert shape(x, (None, None, 200)) is True
 
 
-class TestSeedFunctions:
-    """Tests for seed utilities."""
+class TestRng:
+    """Tests for :func:`seed`, :func:`snapshot`, :func:`restore`."""
 
-    def test_set_seed_no_error(self) -> None:
-        set_seed(42)
+    def test_seed(self) -> None:
+        """seed does not raise."""
+        seed(42)
 
-    def test_get_set_rng_round_trip(self) -> None:
-        set_seed(42)
+    def test_round_trip(self) -> None:
+        """Round-trip of rng state snapshot/restore."""
+        seed(42)
         torch.randn(5)
-        state = get_rng_states()
-
-        # Generate more values from this state
+        state = snapshot()
         a2 = torch.randn(5)
-
-        # Restore and re-generate: should match a2, not a
-        set_rng_states(state)
+        restore(state)
         a2_again = torch.randn(5)
         assert torch.allclose(a2, a2_again)
 
-    def test_get_rng_states_has_required_keys(self) -> None:
-        state = get_rng_states()
+    def test_snapshot_keys(self) -> None:
+        state = snapshot()
         assert "python" in state
         assert "numpy" in state
         assert "torch" in state
 
-    def test_set_rng_states_missing_key_raises(self) -> None:
+    def test_restore_missing(self) -> None:
         with pytest.raises(KeyError):
-            set_rng_states({"numpy": None, "torch": None})
+            restore({"numpy": None, "torch": None})
 
-    def test_reproducible_with_same_seed(self) -> None:
-        set_seed(123)
+    def test_reproducible(self) -> None:
+        seed(123)
         x1 = torch.randn(10)
-        set_seed(123)
+        seed(123)
         x2 = torch.randn(10)
         assert torch.allclose(x1, x2)

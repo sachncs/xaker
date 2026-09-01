@@ -1,132 +1,34 @@
-"""Smoke tests for the benchmark helpers in :mod:`laker_xsa.benchmarks`.
-
-Covers :func:`laker_xsa.benchmarks.long_context.long_context_benchmark`
-(per-(seq_len, attention-type) accuracy and loss under ``config`` /
-``results`` keys),
-:func:`laker_xsa.benchmarks.conditioning.compute_conditioning_metrics`
-(``raw_condition_mean`` and ``regularized_condition_mean``; regularisation
-must not worsen conditioning), and
-:func:`laker_xsa.benchmarks.runtime.runtime_profile` /
-:func:`profile_iterations` (``forward`` / ``backward`` keys with
-non-zero ``mean_ms``; ``iterations`` and ``residual_norms`` of expected
-length, finite residuals, strictly positive ``initial_residual`` and
-``final_residual``).
-
-The runtime-profile tests use the deprecated v1
-:class:`FusedXSALAKERAttention` to match the example scripts; use
-:class:`LakerAttention` directly if profiling the v2 path.
-"""
+"""Smoke tests for the v2 bench infrastructure."""
 
 from __future__ import annotations
 
-import pytest
-import torch
+import tempfile
+from pathlib import Path
 
-from laker_xsa.config import XSA_LAKER_Config
-from laker_xsa.benchmarks.long_context import long_context_benchmark
-from laker_xsa.benchmarks.conditioning import compute_conditioning_metrics
-from laker_xsa.benchmarks.runtime import runtime_profile, profile_iterations
-from laker_xsa.attention._legacy import FusedXSALAKERAttention
-
-pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
+from xaker.bench import Metrics, Spec, Result, run, write
 
 
-class TestLongContextBenchmark:
-    """Tests for long-context benchmark."""
-
-    def test_long_context_runs(self) -> None:
-        """Test long-context benchmark completes."""
-        results = long_context_benchmark(
-            d_model=64,
-            num_heads=4,
-            seq_lens=[32, 64],
-            num_trials=2,
-        )
-
-        assert "config" in results
-        assert "results" in results
-        assert len(results["results"]) == 2  # Two sequence lengths
-
-    def test_long_context_metrics(self) -> None:
-        """Test long-context benchmark produces metrics."""
-        results = long_context_benchmark(
-            d_model=64,
-            num_heads=4,
-            seq_lens=[32],
-            num_trials=2,
-        )
-
-        for seq_len, data in results["results"].items():
-            for attn_type, metrics in data.items():
-                assert "accuracy" in metrics
-                assert "loss" in metrics
-                assert 0.0 <= metrics["accuracy"] <= 1.0
+def test_run_smoke() -> None:
+    """Bench run produces a Result with at least one entry."""
+    spec = Spec(lengths=[16], dim=32, heads=2, kinds=["standard"], warmup=1, runs=2, seeds=[0])
+    result = run(spec)
+    assert isinstance(result, Result)
+    assert len(result.results) >= 1
 
 
-class TestConditioningBenchmark:
-    """Tests for conditioning benchmark."""
-
-    def test_conditioning_metrics_runs(self) -> None:
-        """Test conditioning metrics computation."""
-        config = XSA_LAKER_Config(
-            d_model=64,
-            num_heads=4,
-            kernel_type="rbf",
-        )
-
-        metrics = compute_conditioning_metrics(config, seq_len=32, num_samples=3)
-
-        assert "raw_condition_mean" in metrics
-        assert "regularized_condition_mean" in metrics
-        assert metrics["raw_condition_mean"] > 0
-        assert metrics["regularized_condition_mean"] > 0
-
-    def test_conditioning_improvement(self) -> None:
-        """Test regularization improves conditioning."""
-        config = XSA_LAKER_Config(d_model=64, num_heads=4)
-
-        metrics = compute_conditioning_metrics(config, seq_len=32, num_samples=3)
-
-        # Regularization should reduce condition number
-        assert metrics["regularized_condition_mean"] <= metrics["raw_condition_mean"]
+def test_metrics_dataclass() -> None:
+    """Metrics has expected field names."""
+    m = Metrics()
+    assert hasattr(m, "forward_ms_mean")
+    assert hasattr(m, "memory_mib")
+    assert hasattr(m, "converged")
 
 
-class TestRuntimeBenchmark:
-    """Tests for runtime benchmark."""
-
-    def test_runtime_profile_runs(self) -> None:
-        """Test runtime profiling completes."""
-        config = XSA_LAKER_Config(d_model=64, num_heads=4)
-        attn = FusedXSALAKERAttention(config)
-        x = torch.randn(2, 32, config.d_model)
-
-        profile = runtime_profile(attn, x, num_warmup=2, num_runs=5)
-
-        assert "forward" in profile
-        assert "backward" in profile
-        assert profile["forward"]["mean_ms"] > 0
-        assert profile["backward"]["mean_ms"] > 0
-
-    def test_profile_iterations_runs(self) -> None:
-        """Test iteration profiling completes."""
-        config = XSA_LAKER_Config(d_model=64, num_heads=4)
-
-        profile = profile_iterations(config, seq_len=32, max_iterations=20)
-
-        assert "iterations" in profile
-        assert "residual_norms" in profile
-        assert len(profile["iterations"]) == 20
-        assert len(profile["residual_norms"]) == 20
-
-    def test_iterations_converge(self) -> None:
-        """Test that iteration profiling produces valid residual data."""
-        config = XSA_LAKER_Config(d_model=64, num_heads=4)
-
-        profile = profile_iterations(config, seq_len=32, max_iterations=30)
-
-        assert len(profile["iterations"]) == 30
-        assert len(profile["residual_norms"]) == 30
-        assert all(torch.tensor(r).isfinite().item() for r in profile["residual_norms"])
-        assert profile["initial_residual"] > 0
-        assert profile["final_residual"] > 0
-        assert profile["reduction_factor"] > 0
+def test_write_persists() -> None:
+    """write(result, path) writes a JSON file."""
+    spec = Spec(lengths=[8], dim=16, heads=2, kinds=["xsa"], warmup=1, runs=1, seeds=[0])
+    result = run(spec)
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "out.json"
+        write(result, p)
+        assert p.exists()

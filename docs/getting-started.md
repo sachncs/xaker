@@ -1,118 +1,47 @@
 # Getting Started
 
-This guide walks you through installing LAKER-XSA and running your first experiment.
-
-## Prerequisites
-
-- **Python** 3.9 or later
-- **PyTorch** 2.0 or later
-- A CUDA-capable GPU (recommended, not required)
-
-## Installation
-
-### From source (recommended)
+## Install
 
 ```bash
-git clone https://github.com/sachncs/laker-xsa.git
-cd laker-xsa
-pip install -e .
+pip install xaker
 ```
 
-### With optional dependencies
-
-```bash
-# Development tools (testing, linting, formatting)
-pip install -e ".[dev]"
-
-# Benchmarking tools (matplotlib, pandas)
-pip install -e ".[bench]"
-
-# Training tools (tqdm progress bars)
-pip install -e ".[train]"
-
-# Everything
-pip install -e ".[dev,bench,train]"
-```
-
-## Verify Installation
-
-```bash
-# Run the test suite
-pytest tests/ -v --tb=short
-```
-
-## Your First Experiment
-
-### 1. Single Attention Layer
+## Quick start
 
 ```python
 import torch
-from laker_xsa import XSA_LAKER_Config, LakerAttention
+from xaker import Laker, Config
 
-config = XSA_LAKER_Config(
-    d_model=512,
-    num_heads=8,
-    dropout=0.1,
-    xsa_mode="subtract_projection",
-)
-
-attn = LakerAttention(config)
-x = torch.randn(2, 128, 512)  # (batch, seq_len, d_model)
-out = attn(x)
-print(out.shape)  # torch.Size([2, 128, 512])
+cfg = Config(dim=512, heads=8, drop=0.1)
+attn = Laker(cfg)
+x = torch.randn(2, 128, 512)
+print(attn(x).shape)  # (2, 128, 512)
 ```
 
-### 2. Full Transformer Model
-
-```python
-from laker_xsa.model.full_model import XSALAKERTransformer
-
-model = XSALAKERTransformer(
-    config,
-    num_layers=6,
-    vocab_size=32000,
-    max_seq_len=512,
-    attention_type="fused_v2",
-)
-
-input_ids = torch.randint(0, 32000, (2, 128))
-logits = model(input_ids)
-print(logits.shape)  # torch.Size([2, 128, 32000])
-```
-
-### 3. CLI Training
+## CLI
 
 ```bash
-python -m laker_xsa.cli.train \
-    --d-model 256 \
-    --num-heads 4 \
-    --num-layers 4 \
-    --num-epochs 10 \
-    --batch-size 8 \
-    --attention-type fused_v2
+xaker-train --dim 64 --heads 4 --layers 2 --epochs 5
+xaker-bench --lengths 16 32 64 --runs 20 --output paper_runs/baseline.json
+xaker-eval --checkpoint artifacts/last.pt
+xaker-validate --min-total 14
 ```
 
-### 4. CLI Benchmarking
+## Validate the paper-worthiness rubric
 
 ```bash
-python -m laker_xsa.cli.benchmark \
-    --d-model 512 \
-    --num-heads 8 \
-    --num-runs 50 \
-    --output results.json
+python -m xaker.cli.validate --min-total 14
 ```
 
-## Choosing an Attention Type
+The rubric checks six dimensions (novelty, repro, correctness, efficiency,
+stability, usability) and exits non-zero if the total score is below 14
+or any non-novelty dimension is below 2. See `docs/paper_rubric.md`.
 
-| Type | Module | Use Case |
-|------|--------|----------|
-| `standard` | `StandardMultiHeadAttention` | Baseline, fast inference |
-| `xsa` | `ExclusiveSelfAttention` | Research on XSA mechanism |
-| `fused_v2` | `LakerAttention` | Full XSA + LAKER fusion (recommended) |
+## Run a paper experiment
 
-## Next Steps
+```bash
+python -m examples.run_paper_experiment --spec examples/specs/baseline.yaml
+```
 
-- Read the [Architecture documentation](architecture.md) for design details
-- See the [API Reference](../README.md#api-reference) for configuration options
-- Review [Limitations](limitations.md) before production use
-- Check out the [examples/](../examples/) directory for runnable scripts
+Five specs live in `examples/specs/`: `baseline`, `ablation`, `scaling`,
+`stability`, `rubric`. JSON output goes to `paper_runs/<spec>.json`.
