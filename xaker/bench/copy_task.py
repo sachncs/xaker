@@ -9,15 +9,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import time
 from pathlib import Path
-from typing import Any, List, Literal, Tuple
+from typing import Literal
 
 import torch
 
-from xaker import BLOCK, Config, Model
+from xaker import Config, Model
 from xaker.bench.bench import gitsha
 from xaker.training.loss import ce
 
@@ -93,6 +92,10 @@ def train(kind: Literal["standard", "xsa", "fused", "linear"], *, dim: int, leng
 
 
 def main() -> int:
+    """Command-line entrypoint.
+    
+    Parses CLI args, runs the benchmark, and writes JSON output.
+    """
     parser = argparse.ArgumentParser(description="Copy-task training benchmark")
     parser.add_argument("--out", default="paper_runs/copy_task.json")
     parser.add_argument("--dim", type=int, default=64)
@@ -124,7 +127,7 @@ def main() -> int:
             results["results"].append({"kind": kind, "error": str(exc)})
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
     print(f"\nwrote {out_path}")
     return 0

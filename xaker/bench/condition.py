@@ -24,7 +24,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 from pathlib import Path
 
 import torch
@@ -106,6 +105,10 @@ def measure(dim: int, heads: int, length: int, lam: float, n_seeds: int = 3, nor
 
 
 def main() -> int:
+    """Command-line entrypoint.
+    
+    Parses CLI args, runs the benchmark, and writes JSON output.
+    """
     parser = argparse.ArgumentParser(description="Condition-number benchmark")
     parser.add_argument("--out", default="paper_runs/condition.json")
     parser.add_argument("--dim", type=int, default=64)
@@ -128,7 +131,7 @@ def main() -> int:
             print(f"    {kind}: score={m['score_cond']:.2f}, kernel={m['kernel_cond']:.2f}, ratio={m['ratio_kernel_to_score']:.3f}")
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
     print(f"\nwrote {out_path}")
     return 0

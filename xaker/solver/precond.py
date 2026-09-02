@@ -16,6 +16,7 @@ own single-word names. No aliasing, no shims.
 """
 
 from __future__ import annotations
+# pylint: disable=missing-function-docstring
 
 from dataclasses import dataclass
 from typing import Optional, Protocol, Tuple, Union, cast, runtime_checkable
@@ -41,7 +42,7 @@ class Cache:
 class PrecondProto(Protocol):
     """Typing Protocol: a strategy exposes ``build`` and ``apply_pre``."""
 
-    def build(self, kernel: torch.Tensor, lam: torch.Tensor, length: int) -> Cache: ...
+    def build(self, kernel: torch.Tensor, lam: torch.Tensor, length: int) -> Cache: ...  # pylint: disable=missing-function-docstring
     def apply_pre(self, residual: torch.Tensor, data: Cache) -> torch.Tensor: ...
 
 

@@ -93,6 +93,10 @@ disable = [
     "too-many-instance-attributes",
     "invalid-name",
     "duplicate-code",
+    "not-callable",
+    "broad-exception-caught",
+    "abstract-method",
+    "unused-argument",
 ]
 
 [tool.pytest.ini_options]

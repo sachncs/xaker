@@ -51,7 +51,7 @@ jobs:
 
       - name: Lint with pylint
         run: |
-          pylint xaker/ --rcfile=pyproject.toml --fail-under=9.5 || true
+          pylint xaker/ --rcfile=pyproject.toml --fail-under=9.5
 
       - name: Type check with mypy
         run: |

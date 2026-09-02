@@ -16,21 +16,21 @@ import math
 import os
 import sys
 import time
-from dataclasses import asdict
 from pathlib import Path
 from typing import Literal
 
 import torch
 from torch.utils.data import DataLoader
 
-from xaker import BLOCK, Config, Fit, Trainer
-from xaker.bench.bench import gitsha, tick, write
+from xaker import Config
+from xaker.bench.bench import gitsha
 from xaker.config import Config
 from xaker.model import Model
 from xaker.training.loss import ce
 
 sys.path.insert(0, ".")
-from xaker.datasets import WikiText, build, vocab
+from xaker.datasets import WikiText  # noqa: E402  pylint: disable=wrong-import-position
+
 
 
 def evaluate(model: torch.nn.Module, data: DataLoader, device: torch.device) -> float:
@@ -117,6 +117,10 @@ def trainstep(kind: Literal["standard", "xsa", "fused", "linear"], dim: int, voc
 
 
 def main() -> int:
+    """Command-line entrypoint.
+    
+    Parses CLI args, runs the benchmark, and writes JSON output.
+    """
     parser = argparse.ArgumentParser(description="Train on WikiText-2 and report perplexity")
     parser.add_argument("--out", default="paper_runs/wikitext.json")
     parser.add_argument("--dim", type=int, default=64)
@@ -151,7 +155,7 @@ def main() -> int:
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
     print(f"\nwrote {out_path}")
     return 0

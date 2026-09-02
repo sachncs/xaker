@@ -27,14 +27,10 @@ spec, an environment block, and a per-config results map.
 from __future__ import annotations
 
 import argparse
-import json
-import math
 import os
-import subprocess
-import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, cast
+from typing import Dict, List, Literal, cast
 
 import torch
 
@@ -224,6 +220,10 @@ def sweep(
 
 
 def main() -> int:
+    """Command-line entrypoint.
+    
+    Parses CLI args, runs the benchmark, and writes JSON output.
+    """
     parser = argparse.ArgumentParser(description="Run an ablation sweep")
     parser.add_argument("--out", required=True, help="Output JSON path")
     parser.add_argument("--axis", required=True, choices=["kind", "kernel", "precond", "mode"])

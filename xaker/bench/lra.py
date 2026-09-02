@@ -16,17 +16,15 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import os
 import time
-from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Callable, List, Literal, Tuple
+from typing import Literal
 
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from xaker import BLOCK, Config, Model
+from xaker import Config, Model
 from xaker.bench.bench import gitsha
 from xaker.training.loss import ce
 
@@ -69,8 +67,10 @@ def copy(vocab: int, length: int, size: int, seed: int = 0) -> Dataset:
             gen = torch.Generator().manual_seed(seed)
             self.x = torch.randint(0, vocab, (size, length), generator=gen)
             self.y = self.x.clone()
-        def __len__(self): return len(self.x)
-        def __getitem__(self, i): return self.x[i], self.y[i]
+        def __len__(self):
+            return len(self.x)
+        def __getitem__(self, i):
+            return self.x[i], self.y[i]
     return _DS()
 
 
@@ -91,8 +91,10 @@ def reversal(vocab: int, length: int, size: int, seed: int = 0) -> Dataset:
             gen = torch.Generator().manual_seed(seed)
             self.x = torch.randint(0, vocab, (size, length), generator=gen)
             self.y = self.x.flip(dims=[1])
-        def __len__(self): return len(self.x)
-        def __getitem__(self, i): return self.x[i], self.y[i]
+        def __len__(self):
+            return len(self.x)
+        def __getitem__(self, i):
+            return self.x[i], self.y[i]
     return _DS()
 
 
@@ -128,8 +130,10 @@ def addition(vocab: int, length: int, size: int, seed: int = 0) -> Dataset:
                     carry = s // vocab
                 # Pad sum to length
                 self.y[i] = torch.cat([torch.zeros(half, dtype=torch.long), out])
-        def __len__(self): return len(self.x)
-        def __getitem__(self, i): return self.x[i], self.y[i]
+        def __len__(self):
+            return len(self.x)
+        def __getitem__(self, i):
+            return self.x[i], self.y[i]
     return _DS()
 
 
@@ -163,9 +167,11 @@ def retrieval(vocab: int, length: int, size: int, seed: int = 0) -> Dataset:
                 self.x[i, idx_val] = value
                 self.x[i, idx_query] = key
                 # If query matches key, output value; else 0
-                self.y[i, idx_answer] = value if key == key else 0
-        def __len__(self): return len(self.x)
-        def __getitem__(self, i): return self.x[i], self.y[i]
+                self.y[i, idx_answer] = value
+        def __len__(self):
+            return len(self.x)
+        def __getitem__(self, i):
+            return self.x[i], self.y[i]
     return _DS()
 
 
@@ -254,6 +260,10 @@ def train(
 
 
 def main() -> int:
+    """Command-line entrypoint.
+    
+    Parses CLI args, runs the benchmark, and writes JSON output.
+    """
     parser = argparse.ArgumentParser(description="LRA-style benchmark sweep")
     parser.add_argument("--out", default="paper_runs/lra.json")
     parser.add_argument("--dim", type=int, default=32)
@@ -283,7 +293,7 @@ def main() -> int:
                 task_results.append({"task": task, "kind": kind, "error": str(exc)})
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
     print(f"\nwrote {out_path}")
     return 0
