@@ -83,7 +83,7 @@ Training hyperparameters.
 |---|---|
 | `Block` | Pre-norm Transformer block with dependency-injected attention |
 | `Mlp` | Position-wise FFN (GELU or ReLU) |
-| `Model` | Full Transformer encoder; takes `kind = standard\|xsa\|fused` |
+| `Model` | Full Transformer encoder; takes `attention_type = standard\|xsa\|fused\|fused_v2\|linear` |
 
 ## Training
 

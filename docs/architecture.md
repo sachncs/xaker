@@ -80,7 +80,7 @@ For each forward pass on per head:
 3. Apply external mask if supplied; otherwise zero the kernel diagonal
    (XSA diagonal removal).
 4. Build or reuse the preconditioner payload via `Make(config).build(K, lam, length)`.
-5. Call `pcg(K, v, lam, apply=Make(config).apply, ...)` and receive `Solve`.
+5. Call `pcg(K, v, lam, apply_pre=Make(config).apply_pre, ...)` and receive `Solve`.
 6. If `Solve.converged` is False, fall back to `torch.linalg.solve`.
 7. Clamp to `[-BOUND, BOUND]` and RMS-normalize.
 8. Apply XSA strategy `Projection`/`Zero`/`Mask` for output cleaning.

@@ -39,8 +39,8 @@ from xaker import Config, BLOCK, Make, XsaStrategy
 
 cfg = Config(dim=64, heads=4, precond="fast")
 
-attn = BLOCK[cfg.attention or "fused"](cfg)      # Standard / Xsa / Fused / Linear
-precond_apply = Make(cfg).apply                 # preconditioner
+attn = BLOCK["fused"](cfg)                      # Standard / Xsa / Fused / Linear
+preconditioner = Make(cfg)                      # preconditioner
 strategy = XsaStrategy(cfg, scale=...)          # Projection / Zero / Mask
 ```
 
@@ -81,9 +81,9 @@ That's it — `Block` accepts attention by dependency injection.
 
 1. Subclass `nn.Module` in `xaker/solver/precond.py` and implement
    `build(kernel, lam, length) -> Cache` and
-   `apply(residual, data) -> Tensor`.
-2. Register it in `Make(config)` by extending the `if config.precond`
-   branch.
+   `apply_pre(residual, data) -> Tensor`.
+2. Register the class in the `MODE` dict inside
+   `xaker/solver/precond.py` so `Make(config)` can dispatch by name.
 3. Add the new value to `Config.precond`'s `Literal[...]` type.
 
 ## Why are there no `import x as y` aliases anywhere?

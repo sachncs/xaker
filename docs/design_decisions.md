@@ -29,7 +29,7 @@ table. The branches that used to live in algorithm code are gone.
 
 ## Attention variants
 
-The package ships three attention modules. They share `Base` and
+The package ships four attention modules. They share `Base` and
 `Qkv` from `xaker/attention/core.py` and only override
 `attend(q, k, v, m)`.
 
@@ -98,7 +98,7 @@ is the stateful counterpart for `Fused` — same math, learnable `temp`.
 
 `Config.precond` selects one of four concrete `nn.Module` strategies.
 Each implements `build(kernel, lam, length) -> Cache` and
-`apply(residual, data) -> Tensor`.
+`apply_pre(residual, data) -> Tensor`.
 
 | `precond` | Where it shines | Cost per step |
 |---|---|---|

@@ -22,13 +22,16 @@ Conjugate Gradient. The library is the open-source companion to a
 paper-in-progress that quantifies the trade-offs of this fusion
 relative to vanilla scaled dot-product attention.
 
-Three attention variants ship in one polymorphic dispatch:
+Four attention variants ship in one polymorphic dispatch:
 
 - `Standard` -- Vaswani-style scaled dot-product attention. Baseline.
 - `Xsa` -- Exclusive Self Attention. Removes each token's
   self-projection so tokens can only aggregate context.
 - `Fused` -- The flagship: XSA + kernel ridge regression solved by
   PCG with a configurable preconditioner.
+- `Linear` -- Linear-complexity attention baseline (Katharopoulos
+  et al., 2020). Reference comparison; fails on tasks that need
+  positional information.
 
 The `Fused` block implements the XSA projection-removal step plus
 the LAKER-style kernel ridge regression formulation, addressing two
@@ -105,7 +108,7 @@ preconditioner, and mode ablations.
   `xaker-bench`, `xaker-validate`
 - Single-word public API: no `_private` names, no `import x as y`
   aliases, no multi-word shims
-- 296 tests, 92% coverage, 18/18 rubric score
+- 296 tests, 91.3% coverage, 17/18 rubric score
 
 ---
 
@@ -137,7 +140,7 @@ command, not punctuation.
 xaker-validate
 ```
 
-Prints a six-dimension rubric table with a total. Current state: 18 / 18 -- PASS.
+Prints a six-dimension rubric table with a total. Current state: 17 / 18 -- PASS.
 
 ```bash
 xaker-train --dim 256 --heads 4 --layers 4 --epochs 5 --kind fused
@@ -292,7 +295,7 @@ xaker/
 │       ├── finite.py          finite
 │       ├── ops.py             causal, padding, shape, clamp, BOUND
 │       └── rng.py             seed, snapshot, restore
-├── tests/                     296 tests, 91.5% coverage
+├── tests/                     296 tests, 91.3% coverage
 ├── examples/
 │   ├── run_paper_experiment.py
 │   └── specs/                 Five YAML experiment specs
@@ -316,7 +319,7 @@ xaker-validate --min-total 14                                 # paper rubric
 python -m examples.run_paper_experiment --spec examples/specs/baseline.yaml   # reproduce benchmark
 ```
 
-Current state: 296 tests passing, 91.5% coverage, 18/18 rubric.
+Current state: 296 tests passing, 91.3% coverage, 17/18 rubric.
 
 ---
 

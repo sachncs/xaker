@@ -57,7 +57,10 @@ CLI / API / docs.
 ## Current grading
 
 Run `xaker-validate --repo-root . --min-total 14`. Last run:
-**18 / 18 — PASS**.
+**17 / 18 — PASS** (one rubric dimension partial credit: the
+`correctness` grader checks for legacy `laker` test fixtures that
+were renamed to `fused`; all six CI gates green, total comfortably
+above the 14 threshold).
 
 The graders live in `xaker/rubric/grader.py` (one per dimension) and
 inspect the repository itself: presence of CI workflows, JSON schema

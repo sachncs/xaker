@@ -110,7 +110,7 @@ returned in a single matvec + scaled identity product.
 
 `xaker.solver.cg:pcg` solves `(K + lam I) alpha = v` by PCG with a
 configurable preconditioner `P`. Given the preconditioner factory
-`apply = Make(config).apply`:
+`apply_pre = Make(config).apply_pre`:
 
 ```math
 \alpha_0 = 0,\ r_0 = v,\ z_0 = P(r_0),\ p_0 = z_0
@@ -156,7 +156,7 @@ propagated so the surrounding `finite()` check fails loudly.
 ## 5. Preconditioner parameterisations
 
 Each strategy in `xaker/solver/precond.py` exposes
-`build(K, lam, length) -> Cache` and `apply(r, data) -> Tensor`.
+`build(K, lam, length) -> Cache` and `apply_pre(r, data) -> Tensor`.
 
 ### `Identity`
 
@@ -279,7 +279,7 @@ A `Fused` call with `mode = "subtract"` on a `4`-head,
    diagonal-removal step.
 4. `lam = softplus(raw_lambda) + eps = 3.0` after init.
 5. `cache = Make(config).build(K, lam, 16)`.
-6. `solve = pcg(K, v, lam, apply=Make(config).apply, ...,
+6. `solve = pcg(K, v, lam, apply_pre=Make(config).apply_pre, ...,
    iters=20, tol=1e-2)`. With `precond = "fast"` this converges in
    typically 4-6 iterations for this size.
 7. `alpha = solve.x`; if `not solve.converged` and `finite(alpha)`,

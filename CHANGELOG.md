@@ -289,6 +289,7 @@ attn = BLOCK["linear"](config)
   design decisions, limitations.
 - MIT License.
 
+[0.5.1]: https://github.com/sachncs/xaker/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/sachncs/xaker/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/sachncs/xaker/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/sachncs/xaker/compare/v0.2.3...v0.3.0
