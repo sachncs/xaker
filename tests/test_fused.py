@@ -174,7 +174,7 @@ class TestPrecond:
     def test_apply(self) -> None:
         pre = Make(Config(dim=64, heads=4, precond="identity"))
         residual = torch.randn(2, 4, 16, 8)
-        out = pre.apply(residual, None)
+        out = pre.apply_pre(residual, None)
         assert torch.equal(out, residual)
 
 

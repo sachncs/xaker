@@ -12,7 +12,7 @@ def test_identity_apply() -> None:
     """Identity.apply returns the residual unchanged."""
     pre = Make(Config(dim=64, heads=4, precond="identity"))
     residual = torch.randn(2, 4, 16, 8)
-    out = pre.apply(residual, None)
+    out = pre.apply_pre(residual, None)
     assert torch.equal(out, residual)
 
 
@@ -21,7 +21,7 @@ def test_diagonal_apply() -> None:
     pre = Make(Config(dim=64, heads=4, precond="diagonal"))
     residual = torch.randn(2, 4, 16, 8)
     data = pre.build(torch.randn(2, 4, 16, 16), torch.tensor(0.1), 16)
-    out = pre.apply(residual, data)
+    out = pre.apply_pre(residual, data)
     assert out.shape == residual.shape
 
 
@@ -30,7 +30,7 @@ def test_fast_apply() -> None:
     pre = Make(Config(dim=64, heads=4, precond="fast", rank=4))
     residual = torch.randn(2, 4, 16, 8)
     data = pre.build(torch.randn(2, 4, 16, 16), torch.tensor(0.1), 16)
-    out = pre.apply(residual, data)
+    out = pre.apply_pre(residual, data)
     assert out.shape == residual.shape
     assert torch.isfinite(out).all()
 
@@ -40,7 +40,7 @@ def test_cccp_apply() -> None:
     pre = Make(Config(dim=64, heads=4, precond="cccp"))
     residual = torch.randn(2, 4, 16, 8)
     data = pre.build(torch.randn(2, 4, 16, 16), torch.tensor(0.1), 16)
-    out = pre.apply(residual, data)
+    out = pre.apply_pre(residual, data)
     assert out.shape == residual.shape
     assert torch.isfinite(out).all()
 
@@ -60,5 +60,5 @@ def test_fast_no_rank() -> None:
     pre = Make(Config(dim=64, heads=4, precond="fast", rank=0))
     residual = torch.randn(2, 4, 16, 8)
     data = pre.build(torch.randn(2, 4, 16, 16), torch.tensor(0.1), 16)
-    out = pre.apply(residual, data)
+    out = pre.apply_pre(residual, data)
     assert out.shape == residual.shape
