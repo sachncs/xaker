@@ -44,7 +44,7 @@ def pcg(
     b: torch.Tensor,
     lam: torch.Tensor,
     precond_data=None,
-    apply: Optional[Callable] = None,
+    apply_pre: Optional[Callable] = None,
     iters: int = 50,
     tol: float = 1e-3,
     miniters: int = 3,
@@ -58,7 +58,7 @@ def pcg(
         lam: Ridge regulariser broadcastable to kernel's diagonal.
         precond_data: Payload from ``Make(config).build(...)``; may
             be ``None`` for the unpreconditioned fallback.
-        apply: Callable ``apply(r, precond_data) -> Tensor``
+        apply_pre: Callable ``apply_pre(r, precond_data) -> Tensor``
             implementing ``P(r)``. ``None`` falls back to identity.
         iters: Maximum iteration count.
         tol: Relative residual convergence threshold.
@@ -79,8 +79,8 @@ def pcg(
 
     bnorm = torch.sqrt((b * b).sum(dim=(-2, -1), keepdim=True))
 
-    if apply is not None and precond_data is not None:
-        z = apply(r, precond_data)
+    if apply_pre is not None and precond_data is not None:
+        z = apply_pre(r, precond_data)
     else:
         z = r
 
@@ -109,8 +109,8 @@ def pcg(
             history.append(float(torch.sqrt((r * r).sum(dim=(-2, -1))).mean().item()
                                  / (torch.sqrt((b * b).sum(dim=(-2, -1))).mean().item() + 1e-12)))
 
-        if apply is not None and precond_data is not None:
-            z = apply(r, precond_data)
+        if apply_pre is not None and precond_data is not None:
+            z = apply_pre(r, precond_data)
         else:
             z = r
 
@@ -129,7 +129,7 @@ def richardson(
     b: torch.Tensor,
     lam: torch.Tensor,
     precond_data=None,
-    apply: Optional[Callable] = None,
+    apply_pre: Optional[Callable] = None,
     iters: int = 10,
     omega: float = 1.0,
 ) -> Solve:
@@ -141,7 +141,7 @@ def richardson(
         lam: Ridge regulariser broadcastable to kernel's diagonal.
         precond_data: Payload from ``Make(config).build(...)``; may
             be ``None``.
-        apply: Callable ``apply(r, precond_data) -> Tensor``; ``None``
+        apply_pre: Callable ``apply_pre(r, precond_data) -> Tensor``; ``None``
             falls back to identity.
         iters: Number of fixed updates to perform.
         omega: Scalar step size.
@@ -155,8 +155,8 @@ def richardson(
     for i in range(iters):
         ax = op(kernel, x, lam)
         residual = b - ax
-        if apply is not None and precond_data is not None:
-            update = apply(residual, precond_data)
+        if apply_pre is not None and precond_data is not None:
+            update = apply_pre(residual, precond_data)
         else:
             update = residual
         x = x + omega * update

@@ -44,7 +44,10 @@ def cond(K: torch.Tensor) -> float:
         ``kappa(K)`` averaged over ``(batch, heads)``.
     """
     sv = torch.linalg.svdvals(K)
-    return (sv.max(dim=-1).values / (sv.min(dim=-1).values + 1e-10)).mean().item()
+    sv_max: torch.Tensor = sv.max(dim=-1).values
+    sv_min: torch.Tensor = sv.min(dim=-1).values
+    ratio: torch.Tensor = sv_max / (sv_min + 1e-10)
+    return float(ratio.mean().item())
 
 
 def measure(dim: int, heads: int, length: int, lam: float, n_seeds: int = 3, normalize: bool = True) -> dict:
@@ -112,15 +115,16 @@ def main() -> int:
     parser.add_argument("--seeds", type=int, default=3)
     args = parser.parse_args()
     print(f"Condition-number benchmark, dim={args.dim}, heads={args.heads}, lam={args.lam}")
-    results = {
+    results: dict = {
         "config": {"dim": args.dim, "heads": args.heads, "lam": args.lam, "seeds": args.seeds},
         "git_sha": gitsha(), "torch_version": torch.__version__,
         "by_length": {},
     }
     for L in args.lengths:
         print(f"  length={L} ...")
-        results["by_length"][f"L={L}"] = measure(args.dim, args.heads, L, args.lam, args.seeds)
-        for kind, m in results["by_length"][f"L={L}"].items():
+        per_kind = measure(args.dim, args.heads, L, args.lam, args.seeds)
+        results["by_length"][f"L={L}"] = per_kind
+        for kind, m in per_kind.items():
             print(f"    {kind}: score={m['score_cond']:.2f}, kernel={m['kernel_cond']:.2f}, ratio={m['ratio_kernel_to_score']:.3f}")
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

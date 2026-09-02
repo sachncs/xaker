@@ -16,7 +16,7 @@ Mode values: ``"subtract"`` (default), ``"zero"``, ``"mask"``.
 from __future__ import annotations
 
 import math
-from typing import Protocol
+from typing import Union
 
 import torch
 from torch import nn
@@ -25,11 +25,7 @@ from xaker.config import Config
 from xaker.attention.core import Base, keep
 
 
-class XsaMode(Protocol):
-    """XSA strategy: modifies scores pre-softmax and/or output post-softmax."""
-
-    def prepare(self, scores: torch.Tensor, mask: torch.Tensor | None) -> torch.Tensor: ...
-    def apply(self, output: torch.Tensor, v: torch.Tensor) -> torch.Tensor: ...
+XsaMode = Union["Zero", "Projection", "Mask"]
 
 
 class Projection:
@@ -149,7 +145,7 @@ class Mask:
         return output - self.scale * (dot / vnorm) * v
 
 
-XSA_MODE = {
+XSA_MODE: dict[str, type[Union["Zero", "Projection", "Mask"]]] = {
     "subtract": Projection,
     "zero": Zero,
     "mask": Mask,
@@ -168,7 +164,8 @@ def XsaStrategy(config: Config, scale: torch.Tensor) -> XsaMode:
     Returns:
         An :class:`XsaMode` strategy instance.
     """
-    return XSA_MODE[config.mode](config, scale)
+    cls = XSA_MODE[config.mode]
+    return cls(config, scale)
 
 
 class Xsa(Base):

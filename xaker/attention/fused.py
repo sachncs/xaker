@@ -34,7 +34,7 @@ from xaker.attention.kernel import Kernel
 from xaker.attention.ops import rms, zerodiag
 from xaker.attention.xsa import XsaStrategy
 from xaker.solver.cg import pcg
-from xaker.solver.precond import BOUND, Make
+from xaker.solver.precond import BOUND, Fast, Make
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ class Fused(Base):
             b=v,
             lam=lam,
             precond_data=data,
-            apply=self.precon.apply,
+            apply_pre=self.precon.apply_pre,
             iters=self.config.pcg,
             tol=self.config.tol,
             miniters=3,
@@ -165,6 +165,7 @@ class Fused(Base):
         out = torch.clamp(solve_x, -BOUND, BOUND)
         out = rms(out, self.config.eps)
         # Bump Fast preconditioner step counter
-        if hasattr(self.precon, "iter"):
-            self.precon.iter.add_(1)
+        fast = self.precon
+        if isinstance(fast, Fast):
+            fast.iter.add_(1)
         return self.xsa.apply(out, v)

@@ -18,6 +18,7 @@ import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
+from typing import Literal
 
 import torch
 from torch.utils.data import DataLoader
@@ -55,7 +56,7 @@ def evaluate(model: torch.nn.Module, data: DataLoader, device: torch.device) -> 
     return math.exp(sum(losses) / len(losses))
 
 
-def trainstep(kind: str, dim: int, vocab_size: int, length: int, *, epochs: int, device: torch.device) -> dict:
+def trainstep(kind: Literal["standard", "xsa", "fused", "linear"], dim: int, vocab_size: int, length: int, *, epochs: int, device: torch.device) -> dict:
     """Train one model end-to-end on WikiText-2.
 
     Args:
@@ -126,7 +127,7 @@ def main() -> int:
     device = torch.device(os.environ.get("XAKER_DEVICE", "cpu"))
     print(f"Training on {device}, dim={args.dim}, length={args.length}, epochs={args.epochs}")
     vocab_size = 256  # byte-level
-    results = {
+    results: dict = {
         "config": {
             "device": str(device),
             "dim": args.dim,
@@ -137,7 +138,8 @@ def main() -> int:
         "torch_version": torch.__version__,
         "results": [],
     }
-    for kind in ["standard", "xsa", "fused", "linear"]:
+    kinds: list[Literal["standard", "xsa", "fused", "linear"]] = ["standard", "xsa", "fused", "linear"]
+    for kind in kinds:
         print(f"\n=== Training {kind} ===")
         try:
             r = trainstep(kind, args.dim, vocab_size, args.length, epochs=args.epochs, device=device)

@@ -160,7 +160,7 @@ class Block(nn.Module):
         drop: float = 0.0,
         activation: Literal["gelu", "relu"] = "gelu",
         attention_type: Literal[
-            "standard", "xsa", "kernel", "fused", "fused_v2"
+            "standard", "xsa", "kernel", "fused", "fused_v2", "linear"
         ] = "fused_v2",
     ) -> None:
         """Initialize the Transformer block.

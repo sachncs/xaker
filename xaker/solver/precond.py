@@ -1,15 +1,15 @@
 """Preconditioner strategies for the LAKER kernel solve.
 
 Public surface:
-- :func:`Make` — factory function (single entry point)
-- :class:`Identity`, :class:`Diagonal`, :class:`Fast`, :class:`Cccp` — concrete
+- :func:`Make` -- factory function (single entry point)
+- :class:`Identity`, :class:`Diagonal`, :class:`Fast`, :class:`Cccp` -- concrete
   ``nn.Module`` strategies
-- :class:`Cache` — payload dataclass returned by ``.build()``
-- :class:`PrecondProto` — typing Protocol for static checks
+- :class:`Cache` -- payload dataclass returned by ``.build()``
+- :class:`PrecondProto` -- typing Protocol for static checks
 
 The factory dispatches on ``config.precond`` and constructs the configured
 strategy. Each strategy is a real ``nn.Module`` that implements
-``build(kernel, lam, length) -> Cache`` and ``apply(residual, data) -> Tensor``.
+``build(kernel, lam, length) -> Cache`` and ``apply_pre(residual, data) -> Tensor``.
 
 There is exactly one public symbol named ``Make``. Strategies have their
 own single-word names. No aliasing, no shims.
@@ -18,7 +18,7 @@ own single-word names. No aliasing, no shims.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Optional, Protocol, Tuple, Union, cast, runtime_checkable
 
 import torch
 from torch import nn
@@ -27,19 +27,22 @@ from torch import nn
 BOUND = 1e6
 
 
+CacheData = Union[torch.Tensor, Tuple[torch.Tensor, Optional[torch.Tensor]], None]
+
+
 @dataclass
 class Cache:
-    """Preconditioner payload returned by ``.build()`` and consumed by `` ``.apply()``."""
+    """Preconditioner payload returned by ``.build()`` and consumed by ``.apply_pre()``."""
 
-    data: object = None
+    data: CacheData = None
 
 
 @runtime_checkable
 class PrecondProto(Protocol):
-    """Typing Protocol: a strategy exposes ``build`` and ``apply``."""
+    """Typing Protocol: a strategy exposes ``build`` and ``apply_pre``."""
 
     def build(self, kernel: torch.Tensor, lam: torch.Tensor, length: int) -> Cache: ...
-    def apply(self, residual: torch.Tensor, data: Cache) -> torch.Tensor: ...
+    def apply_pre(self, residual: torch.Tensor, data: Cache) -> torch.Tensor: ...
 
 
 class Identity(nn.Module):
@@ -66,7 +69,7 @@ class Identity(nn.Module):
         """
         return Cache(data=None)
 
-    def apply(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
+    def apply_pre(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
         """Return ``residual`` unchanged.
 
         Args:
@@ -110,7 +113,7 @@ class Diagonal(nn.Module):
         out = out * self.scale.abs() + self.eps
         return Cache(data=out)
 
-    def apply(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
+    def apply_pre(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
         """Apply the diagonal preconditioner.
 
         Args:
@@ -121,7 +124,9 @@ class Diagonal(nn.Module):
         Returns:
             Element-wise scaled residual.
         """
-        return residual * data.data.unsqueeze(-1)
+        diag = data.data
+        assert isinstance(diag, torch.Tensor)
+        return residual * diag.unsqueeze(-1)
 
 
 class Fast(nn.Module):
@@ -155,6 +160,7 @@ class Fast(nn.Module):
         self.freq = config.freq
         self.register_buffer("iter", torch.zeros(1, dtype=torch.long))
         self.cache: Cache | None = None
+        self.iter: torch.Tensor
 
     def build(self, kernel: torch.Tensor, lam: torch.Tensor, length: int) -> Cache:
         if (
@@ -171,11 +177,14 @@ class Fast(nn.Module):
             lr = lr.unsqueeze(0).expand(kernel.shape[0], -1, -1, -1)
         else:
             lr = None
-        self.cache = Cache(data=(diag, lr))
+        payload: CacheData = (diag, lr)
+        self.cache = Cache(data=payload)
         return self.cache
 
-    def apply(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
-        diag, lr = data.data
+    def apply_pre(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
+        payload = data.data
+        assert isinstance(payload, tuple)
+        diag, lr = payload
         out = residual * diag.unsqueeze(-1)
         if lr is not None:
             ut_r = torch.matmul(lr.transpose(-2, -1), residual)
@@ -253,7 +262,8 @@ class Cccp(nn.Module):
         f = f / (1.0 + self.gamma / n)
         st = (1.0 - self.rho) * f + self.rho * eye.unsqueeze(0).unsqueeze(0)
         trace = torch.diagonal(st, dim1=-2, dim2=-1).sum(dim=-1, keepdim=True)
-        return st * n / (trace.unsqueeze(-1) + self.eps_shrink)
+        out: torch.Tensor = st * n / (trace.unsqueeze(-1) + self.eps_shrink)
+        return out
 
     def build(self, kernel: torch.Tensor, lam: torch.Tensor, length: int) -> Cache:
         batch, heads, n, _ = kernel.shape
@@ -263,14 +273,16 @@ class Cccp(nn.Module):
         sigma = eye.unsqueeze(0).unsqueeze(0).expand(batch, heads, -1, -1).clone()
         for _ in range(self.iters):
             sigma = self.step(ubar, sigma)
-        eigvals, eigvecs = torch.linalg.eigh(sigma)
-        eigvals = torch.clamp(eigvals, min=self.eps)
+        eigvals_raw, eigvecs = torch.linalg.eigh(sigma)
+        eigvals = torch.clamp(eigvals_raw, min=self.eps)
         inv_sqrt = eigvals.pow(-0.5)
-        P = eigvecs @ (inv_sqrt.unsqueeze(-1) * eigvecs.transpose(-2, -1))
-        return Cache(data=P)
+        p = eigvecs @ (inv_sqrt.unsqueeze(-1) * eigvecs.transpose(-2, -1))
+        return Cache(data=p)
 
-    def apply(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
-        return torch.matmul(data.data, residual)
+    def apply_pre(self, residual: torch.Tensor, data: Cache) -> torch.Tensor:
+        p = data.data
+        assert isinstance(p, torch.Tensor)
+        return torch.matmul(p, residual)
 
 
 MODE = {
@@ -281,7 +293,8 @@ MODE = {
 }
 
 
-def Make(config) -> nn.Module:
+def Make(config) -> Union[Identity, Diagonal, Fast, Cccp]:
     """Build the preconditioner strategy selected by ``config.precond``."""
     cls = MODE[config.precond]
-    return cls(config)
+    assert cls is not None
+    return cast(Union[Identity, Diagonal, Fast, Cccp], cls(config))

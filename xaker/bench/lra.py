@@ -21,7 +21,7 @@ import os
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Callable, List, Tuple
+from typing import Callable, List, Literal, Tuple
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -179,7 +179,7 @@ TASKS = {
 
 def train(
     task_name: str,
-    kind: str,
+    kind: Literal["standard", "xsa", "fused", "linear"],
     *,
     dim: int = 32,
     length: int = 32,
@@ -187,10 +187,10 @@ def train(
     epochs: int = 5,
     device: torch.device = torch.device("cpu"),
 ) -> dict:
-    """Train one model on one LRA task and report accuracy.
+    """Run one attention kind on one LRA-style task.
 
     Args:
-        task_name: One of ``"copy"``, ``"reversal"``, ``"addition"``, ``"retrieval"``.
+        task_name: One of the registered task functions.
         kind: Attention kind.
         dim: Model width.
         length: Sequence length.
@@ -199,7 +199,8 @@ def train(
         device: Training device.
 
     Returns:
-        Dict with task, kind, accuracy, train_loss, val_loss, wall_seconds.
+        Dict with ``task``, ``kind``, ``accuracy``, ``val_loss``,
+        ``wall_seconds``.
     """
     torch.manual_seed(0)
     task_fn = TASKS[task_name]
@@ -261,23 +262,25 @@ def main() -> int:
     args = parser.parse_args()
     device = torch.device(os.environ.get("XAKER_DEVICE", "cpu"))
     print(f"LRA benchmark on {device}, dim={args.dim}, length={args.length}, epochs={args.epochs}")
-    results = {
+    results: dict = {
         "config": {"device": str(device), "dim": args.dim, "length": args.length, "epochs": args.epochs},
         "git_sha": gitsha(), "torch_version": torch.__version__,
         "tasks": {},
     }
+    kinds: list[Literal["standard", "xsa", "fused", "linear"]] = ["standard", "xsa", "fused", "linear"]
     for task in ["copy", "reversal", "retrieval", "addition"]:
-        results["tasks"][task] = []
+        task_results: list[dict] = []
+        results["tasks"][task] = task_results
         vocab = 16 if task != "addition" else 10
-        for kind in ["standard", "xsa", "fused", "linear"]:
+        for kind in kinds:
             try:
                 print(f"\n=== {task} / {kind} ===")
                 r = train(task, kind, dim=args.dim, length=args.length, vocab=vocab, epochs=args.epochs, device=device)
                 print(f"  acc={r['accuracy']:.4f} val_loss={r['val_loss']:.4f} wall={r['wall_seconds']:.1f}s")
-                results["tasks"][task].append(r)
+                task_results.append(r)
             except Exception as exc:
                 print(f"  FAILED: {exc}")
-                results["tasks"][task].append({"task": task, "kind": kind, "error": str(exc)})
+                task_results.append({"task": task, "kind": kind, "error": str(exc)})
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:

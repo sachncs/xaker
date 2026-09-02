@@ -13,6 +13,7 @@ import math
 import os
 import time
 from pathlib import Path
+from typing import Any, List, Literal, Tuple
 
 import torch
 
@@ -40,7 +41,7 @@ def dataset(vocab: int, length: int, size: int, seed: int = 0) -> tuple[torch.Te
     return x, y
 
 
-def train(kind: str, *, dim: int, length: int, vocab: int, epochs: int, size: int, device: torch.device) -> dict:
+def train(kind: Literal["standard", "xsa", "fused", "linear"], *, dim: int, length: int, vocab: int, epochs: int, size: int, device: torch.device) -> dict:
     """Train one model on the copy task.
 
     Args:
@@ -102,19 +103,20 @@ def main() -> int:
     args = parser.parse_args()
     device = torch.device(os.environ.get("XAKER_DEVICE", "cpu"))
     print(f"Copy task on {device}, dim={args.dim}, length={args.length}, epochs={args.epochs}")
-    results = {
+    results: dict = {
         "config": {"device": str(device), "dim": args.dim, "length": args.length,
                    "vocab": args.vocab, "epochs": args.epochs, "size": args.size},
         "git_sha": gitsha(), "torch_version": torch.__version__,
         "results": [],
     }
-    for kind in ["standard", "xsa", "fused", "linear"]:
+    kinds: list[Literal["standard", "xsa", "fused", "linear"]] = ["standard", "xsa", "fused", "linear"]
+    for kind in kinds:
         print(f"\n=== Training {kind} ===")
         try:
             r = train(kind, dim=args.dim, length=args.length, vocab=args.vocab,
                           epochs=args.epochs, size=args.size, device=device)
             print(f"  train_loss={r['train_loss']:.4f} val_loss={r['val_loss']:.4f} acc={r['accuracy']:.2f} wall={r['wall_seconds']:.1f}s")
-            r_clean = {k: v for k, v in r.items() if k != "loss_curve"}
+            r_clean: dict = {k: v for k, v in r.items() if k != "loss_curve"}
             r_clean["loss_curve_length"] = len(r["loss_curve"])
             results["results"].append(r_clean)
         except Exception as exc:

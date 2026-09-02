@@ -43,7 +43,8 @@ def main(argv: list[str] | None = None) -> int:
         runs=args.runs,
         seeds=args.seeds,
     )
-    ctx = Ctx(device="cuda" if args.cuda and torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if args.cuda and torch.cuda.is_available() else "cpu")
+    ctx = Ctx(device=device)
     result = run(spec, ctx=ctx)
     out = Path(args.output)
     write(result, out)

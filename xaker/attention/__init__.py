@@ -44,7 +44,7 @@ from xaker.attention.xsa import (
 )
 from xaker.attention.fused import Fused
 
-BLOCK = {
+BLOCK: dict[str, type[Base]] = {
     "standard": Standard,
     "xsa": Xsa,
     "fused": Fused,

@@ -46,7 +46,7 @@ class TestCg:
             kernel, b, lam=torch.tensor(0.1),
             iters=100, tol=1e-6,
             precond_data=torch.tensor(0.1),
-            apply=apply_precond,
+            apply_pre=apply_precond,
         )
         assert torch.isfinite(result.x).all()
 

@@ -45,7 +45,7 @@ class Spec:
     warmup: int = 10
     runs: int = 50
     seeds: List[int] = field(default_factory=lambda: [0])
-    precond: str = "fast"
+    precond: Literal["identity", "diagonal", "fast", "cccp"] = "fast"
 
 
 @dataclass
@@ -235,7 +235,7 @@ def run(spec: Spec, *, ctx: Optional[Ctx] = None) -> Result:
                 cfg = Config(
                     dim=spec.dim,
                     heads=spec.heads,
-                    precond=spec.precond if kind == "fused" else "fast",
+                    precond=spec.precond,
                 )
                 mod = cls(cfg).to(ctx.device).to(ctx.dtype)
                 x = torch.randn(

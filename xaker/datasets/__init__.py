@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import torch
 from torch.utils.data import Dataset
@@ -123,7 +123,9 @@ class WikiText(Dataset):
         """
         cache_path = CACHE / f"wikitext_{split}.pt"
         if cache_path.exists():
-            return torch.load(cache_path, weights_only=True)
+            cached = torch.load(cache_path, weights_only=True)
+            assert isinstance(cached, torch.Tensor)
+            return cached
 
         try:
             from datasets import load_dataset
@@ -161,13 +163,15 @@ def _synthetic_corpus(size: int) -> str:
         "exclusive self attention removes the projection of the "
         "output onto each token's value vector. "
     )
-    out = []
-    while sum(len(s) for s in out) < size:
+    out: List[str] = []
+    total = 0
+    while total < size:
         out.append(base)
+        total += len(base)
     return "".join(out)[:size]
 
 
-def build(name: str, **kwargs) -> Dataset:
+def build(name: str, **kwargs: Any) -> Dataset[Any]:
     """Factory for dataset construction.
 
     Args:
@@ -177,7 +181,7 @@ def build(name: str, **kwargs) -> Dataset:
     Returns:
         A :class:`torch.utils.data.Dataset`.
     """
-    table = {
+    table: dict[str, type[Dataset[Any]]] = {
         "copy": CopyTask,
         "reversal": ReversalTask,
         "wikitext": WikiText,

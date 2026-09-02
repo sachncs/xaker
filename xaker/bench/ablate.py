@@ -34,7 +34,7 @@ import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional, cast
 
 import torch
 
@@ -135,11 +135,15 @@ def drive(
         Benchmark :class:`Result` with one ``Metrics`` per
         ``(value, length)`` key.
     """
+    precond_literal: Literal["identity", "diagonal", "fast", "cccp"] = (
+        cast(Literal["identity", "diagonal", "fast", "cccp"], values[0])
+        if axis == "precond" else "cccp"
+    )
     spec = Spec(
         lengths=[length],
         dim=dim, heads=heads, batch=4,
         kinds=["fused"], warmup=2, runs=5, seeds=list(range(seeds)),
-        precond=values[0] if axis == "precond" else "cccp",
+        precond=precond_literal,
     )
     result = Result(
         spec=spec, git_sha=gitsha(), torch_version=torch.__version__,
@@ -187,16 +191,23 @@ def sweep(
     from xaker.bench.bench import tick, peak
 
     torch.manual_seed(seed)
-    cfg_kwargs = {"dim": dim, "heads": heads, "drop": 0.0, "normalize": True, "lam": 10.0}
     if axis == "kernel":
-        cfg_kwargs["kernel"] = value
+        cfg = Config(
+            dim=dim, heads=heads, drop=0.0, normalize=True, lam=10.0,
+            kernel=cast(Literal["exp", "rbf", "linear", "cosine"], value),
+        )
     elif axis == "precond":
-        cfg_kwargs["precond"] = value
+        cfg = Config(
+            dim=dim, heads=heads, drop=0.0, normalize=True, lam=10.0,
+            precond=cast(Literal["cccp", "fast", "diagonal", "identity"], value),
+        )
     elif axis == "mode":
-        cfg_kwargs["mode"] = value
+        cfg = Config(
+            dim=dim, heads=heads, drop=0.0, normalize=True, lam=10.0,
+            mode=cast(Literal["subtract", "zero", "mask"], value),
+        )
     else:
         raise ValueError(f"Unknown axis: {axis}")
-    cfg = Config(**cfg_kwargs)
     mod = BLOCK["fused"](cfg).eval()
     x = torch.randn(4, length, cfg.dim)
     device = _device()

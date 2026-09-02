@@ -34,7 +34,7 @@ def main(argv: list[str] | None = None) -> int:
     xaker.utils.rng.seed(42)
 
     cfg = Config(dim=64, heads=4)
-    model = Model(cfg, num_layers=2, vocab_size=args.vocab, max_seq_len=args.length, kind="fused")
+    model = Model(cfg, num_layers=2, vocab_size=args.vocab, max_seq_len=args.length, attention_type="fused_v2")
     state = torch.load(args.checkpoint, map_location=device, weights_only=True)
     model.load_state_dict(state)
     model = model.to(device).eval()
