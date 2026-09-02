@@ -32,7 +32,7 @@ sys.path.insert(0, ".")
 from xaker.datasets import WikiText, build, vocab
 
 
-def evaluate_perplexity(model: torch.nn.Module, data: DataLoader, device: torch.device) -> float:
+def evaluate(model: torch.nn.Module, data: DataLoader, device: torch.device) -> float:
     """Compute mean cross-entropy and convert to perplexity.
 
     Args:
@@ -55,7 +55,7 @@ def evaluate_perplexity(model: torch.nn.Module, data: DataLoader, device: torch.
     return math.exp(sum(losses) / len(losses))
 
 
-def train_one(kind: str, dim: int, vocab_size: int, length: int, *, epochs: int, device: torch.device) -> dict:
+def trainstep(kind: str, dim: int, vocab_size: int, length: int, *, epochs: int, device: torch.device) -> dict:
     """Train one model end-to-end on WikiText-2.
 
     Args:
@@ -140,7 +140,7 @@ def main() -> int:
     for kind in ["standard", "xsa", "fused", "linear"]:
         print(f"\n=== Training {kind} ===")
         try:
-            r = train_one(kind, args.dim, vocab_size, args.length, epochs=args.epochs, device=device)
+            r = trainstep(kind, args.dim, vocab_size, args.length, epochs=args.epochs, device=device)
             print(f"  train_loss={r['train_loss']:.4f} val_loss={r['val_loss']:.4f} val_ppl={r['val_ppl']:.2f} wall={r['wall_seconds']:.1f}s")
             results["results"].append(r)
         except Exception as exc:

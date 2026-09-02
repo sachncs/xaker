@@ -25,7 +25,7 @@ jobs:
           pip install -e ".[dev]"
       - name: Single-word naming guard
         run: |
-          ! git grep -nE '\bdef [a-z]+_[a-z_]+ ?\(' xaker/ || (echo "Multi-word function names found"; exit 1)
+          ! git grep -nE '\bdef [a-z]+_[a-z_]+ ?\(' xaker/ | grep -v "def pytest_" || (echo "Multi-word function names found"; exit 1)
           ! git grep -nE '\bclass [A-Z][a-zA-Z]*[A-Z]' xaker/ || (echo "Multi-word PascalCase class names found"; exit 1)
           ! git grep -rnE '\b_[a-zA-Z]' xaker/ --include='*.py' | grep -v "__init__\|__all__\|__version__\|__future__" || (echo "Leading-underscore names found"; exit 1)
           ! git grep -rnE 'import .* as |from .* import .* as ' xaker/ --include='*.py' || (echo "Aliasing imports found"; exit 1)

@@ -21,7 +21,7 @@ from xaker.bench.bench import gitsha
 from xaker.training.loss import ce
 
 
-def make_copy(vocab: int, length: int, size: int, seed: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
+def dataset(vocab: int, length: int, size: int, seed: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
     """Generate ``size`` copy-task samples.
 
     Args:
@@ -40,7 +40,7 @@ def make_copy(vocab: int, length: int, size: int, seed: int = 0) -> tuple[torch.
     return x, y
 
 
-def train_eval(kind: str, *, dim: int, length: int, vocab: int, epochs: int, size: int, device: torch.device) -> dict:
+def train(kind: str, *, dim: int, length: int, vocab: int, epochs: int, size: int, device: torch.device) -> dict:
     """Train one model on the copy task.
 
     Args:
@@ -57,8 +57,8 @@ def train_eval(kind: str, *, dim: int, length: int, vocab: int, epochs: int, siz
         ``loss_curve``.
     """
     torch.manual_seed(0)
-    x_train, y_train = make_copy(vocab, length, size)
-    x_val, y_val = make_copy(vocab, length, 32, seed=1)
+    x_train, y_train = dataset(vocab, length, size)
+    x_val, y_val = dataset(vocab, length, 32, seed=1)
     cfg = Config(dim=dim, heads=4, drop=0.1)
     model = Model(cfg, num_layers=2, vocab_size=vocab, max_seq_len=length, attention_type=kind)
     model = model.to(device)
@@ -111,7 +111,7 @@ def main() -> int:
     for kind in ["standard", "xsa", "fused", "linear"]:
         print(f"\n=== Training {kind} ===")
         try:
-            r = train_eval(kind, dim=args.dim, length=args.length, vocab=args.vocab,
+            r = train(kind, dim=args.dim, length=args.length, vocab=args.vocab,
                           epochs=args.epochs, size=args.size, device=device)
             print(f"  train_loss={r['train_loss']:.4f} val_loss={r['val_loss']:.4f} acc={r['accuracy']:.2f} wall={r['wall_seconds']:.1f}s")
             r_clean = {k: v for k, v in r.items() if k != "loss_curve"}

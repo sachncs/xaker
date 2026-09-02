@@ -9,10 +9,11 @@ import torch
 
 from xaker import BLOCK, Config
 from xaker.attention.linear import Linear
-from xaker.bench.ablate import measure_axis, measure_kind, run_axis
+from xaker.bench.ablate import bench as ablate_bench
+from xaker.bench.ablate import drive, sweep
 from xaker.bench.bench import Metrics
 from xaker.bench.condition import cond
-from xaker.bench.copy_task import make_copy
+from xaker.bench.copy_task import dataset as copy_dataset
 from xaker.bench.lra import (
     TASKS,
     addition,
@@ -132,16 +133,16 @@ class TestCopyTaskBench:
     """Tests for the copy_task bench dataset."""
 
     def test_make_copy(self) -> None:
-        """make_copy generates input == target."""
-        x, y = make_copy(vocab=8, length=8, size=16)
+        """dataset generates input == target."""
+        x, y = copy_dataset(vocab=8, length=8, size=16)
         assert x.shape == (16, 8)
         assert y.shape == (16, 8)
         assert torch.equal(x, y)
 
     def test_make_copy_seed(self) -> None:
         """Same seed gives same data."""
-        x1, y1 = make_copy(vocab=8, length=8, size=16, seed=42)
-        x2, y2 = make_copy(vocab=8, length=8, size=16, seed=42)
+        x1, y1 = copy_dataset(vocab=8, length=8, size=16, seed=42)
+        x2, y2 = copy_dataset(vocab=8, length=8, size=16, seed=42)
         assert torch.equal(x1, x2)
         assert torch.equal(y1, y2)
 
@@ -163,18 +164,18 @@ class TestConditionBench:
 class TestAblateBench:
     """Smoke tests for the ablation bench runner."""
 
-    def test_measure_kind_standard(self) -> None:
-        """measure_kind returns Metrics with positive values for Standard."""
-        m = measure_kind("standard", dim=32, heads=4, length=8, seed=0)
+    def test_bench_standard(self) -> None:
+        """bench returns Metrics with positive values for Standard."""
+        m = ablate_bench("standard", dim=32, heads=4, length=8, seed=0)
         assert isinstance(m, Metrics)
         assert m.forward_ms_mean >= 0.0
 
-    def test_measure_axis_kernel(self) -> None:
-        """measure_axis runs with kernel sweep."""
-        m = measure_axis("kernel", "exp", dim=32, heads=4, length=8, seed=0)
+    def test_sweep_kernel(self) -> None:
+        """sweep runs with kernel sweep."""
+        m = sweep("kernel", "exp", dim=32, heads=4, length=8, seed=0)
         assert isinstance(m, Metrics)
 
-    def test_run_axis_kind(self) -> None:
-        """run_axis returns a populated Result."""
-        result = run_axis("kind", ["standard"], dim=32, heads=4, length=8, seeds=1)
+    def test_drive_kind(self) -> None:
+        """drive returns a populated Result."""
+        result = drive("kind", ["standard"], dim=32, heads=4, length=8, seeds=1)
         assert len(result.results) >= 1

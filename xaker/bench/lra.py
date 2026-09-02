@@ -177,7 +177,7 @@ TASKS = {
 }
 
 
-def train_eval(
+def train(
     task_name: str,
     kind: str,
     *,
@@ -272,7 +272,7 @@ def main() -> int:
         for kind in ["standard", "xsa", "fused", "linear"]:
             try:
                 print(f"\n=== {task} / {kind} ===")
-                r = train_eval(task, kind, dim=args.dim, length=args.length, vocab=vocab, epochs=args.epochs, device=device)
+                r = train(task, kind, dim=args.dim, length=args.length, vocab=vocab, epochs=args.epochs, device=device)
                 print(f"  acc={r['accuracy']:.4f} val_loss={r['val_loss']:.4f} wall={r['wall_seconds']:.1f}s")
                 results["tasks"][task].append(r)
             except Exception as exc:

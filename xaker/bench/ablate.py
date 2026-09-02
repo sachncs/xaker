@@ -72,42 +72,7 @@ class AblSpec:
     extra: Dict[str, object] = field(default_factory=dict)
 
 
-def make_spec(
-    *,
-    dim: int,
-    heads: int,
-    length: int,
-    seed: int,
-    axis: str,
-    value: str,
-) -> Spec:
-    """Construct a benchmark :class:`Spec` for one ablation point.
-
-    Args:
-        dim: Model width.
-        heads: Number of attention heads.
-        length: Sequence length.
-        seed: Random seed.
-        axis: Sweep axis.
-        value: Value of the swept parameter.
-
-    Returns:
-        A :class:`Spec` ready for :func:`xaker.bench.run`.
-    """
-    return Spec(
-        lengths=[length],
-        dim=dim,
-        heads=heads,
-        batch=4,
-        kinds=[value] if axis == "kind" else ["fused"],
-        warmup=2,
-        runs=5,
-        seeds=[seed],
-        precond=value if axis == "precond" else "cccp",
-    )
-
-
-def measure_kind(kind: str, dim: int, heads: int, length: int, seed: int) -> Metrics:
+def bench(kind: str, dim: int, heads: int, length: int, seed: int) -> Metrics:
     """Benchmark one attention kind.
 
     Args:
@@ -146,7 +111,7 @@ def measure_kind(kind: str, dim: int, heads: int, length: int, seed: int) -> Met
     return m
 
 
-def run_axis(
+def drive(
     axis: str,
     values: List[str],
     *,
@@ -189,9 +154,9 @@ def run_axis(
         for seed in range(seeds):
             try:
                 if axis == "kind":
-                    m = measure_kind(value, dim, heads, length, seed)
+                    m = bench(value, dim, heads, length, seed)
                 else:
-                    m = measure_axis(axis, value, dim, heads, length, seed)
+                    m = sweep(axis, value, dim, heads, length, seed)
                 key = (value, length)
                 if key not in result.results:
                     result.results[key] = m
@@ -203,7 +168,7 @@ def run_axis(
     return result
 
 
-def measure_axis(
+def sweep(
     axis: str, value: str, dim: int, heads: int, length: int, seed: int
 ) -> Metrics:
     """Benchmark one attention module with one swept config value.
@@ -259,7 +224,7 @@ def main() -> int:
     args = parser.parse_args()
 
     print(f"Running {args.axis} ablation: {args.values}")
-    result = run_axis(
+    result = drive(
         args.axis, args.values,
         dim=args.dim, heads=args.heads, length=args.length, seeds=args.seeds,
     )
