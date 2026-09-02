@@ -5,6 +5,42 @@ All notable changes to xaker will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-09-03
+
+### Fixed
+- **CI green**: lint, mypy, pylint, and test pipelines now pass across
+  the Python 3.9-3.12 matrix. `pylint --fail-under=9.5` is now an
+  enforced gate (previously masked with `|| true`).
+- **mypy**: 54 type errors resolved. Structural root was the four
+  preconditioner strategies overriding `nn.Module.apply` with a
+  different signature; renamed to `apply_pre` everywhere.
+- **BLOCK registry**: `Linear` attention is now wired in alongside
+  `Standard`, `Xsa`, `Fused` so `attention_type="linear"` actually
+  selects it.
+- **BLOCK typing**: declared `BLOCK: dict[str, type[Base]]`.
+- **Model/Block parity**: `Block.attention_type` Literal now matches
+  `Model.attention_type` (extends to `'linear'`).
+- **XsaMode**: converted from `Protocol` to `Union[Zero, Projection,
+  Mask]` (the Protocol carried no runtime discriminator).
+- **datasets/__init__.py**: optional `datasets` library handling
+  hardened; `WikiText._load` narrows cached tensor; `_synthetic_corpus`
+  outer list annotated; `build()` typed `Dataset[Any]`.
+- **CLI**: `xaker-eval` no longer calls `Model(..., kind=...)`;
+  uses `attention_type=`. `xaker-bench` wraps device string in
+  `torch.device(...)` before passing to `Ctx`.
+- **Junk directory** `xaker/cli/validate.py<` removed from git
+  history (was a botched-edit leftover).
+
+### Changed
+- **Bench helpers** renamed to single-word per the project's naming
+  rule: `make_spec` (deleted as dead code), `measure_kind -> bench`,
+  `run_axis -> drive`, `measure_axis -> sweep`, `make_copy -> dataset`,
+  `train_eval -> train`, `evaluate_perplexity -> evaluate`,
+  `train_one -> trainstep`.
+- **Lint regex** narrowed: pytest-mandated hook names
+  (`pytest_configure`) are now carved out so the single-word rule
+  can stay honest without forcing a rename pytest would reject.
+
 ## [0.5.0] - 2026-09-01
 
 ### Added

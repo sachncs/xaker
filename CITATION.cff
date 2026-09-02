@@ -6,8 +6,8 @@ authors:
   - family-names: "sachin"
     name: "sachin"
     email: "sachncs@gmail.com"
-version: 0.4.0
-date-released: 2026-09-01
+version: 0.5.1
+date-released: 2026-09-03
 url: "https://github.com/sachncs/xaker"
 contact:
   - name: "sachin"

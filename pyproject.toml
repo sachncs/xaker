@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xaker"
-version = "0.4.0"
+version = "0.5.1"
 description = "Exclusive Self Attention (XSA) for Transformer models"
 readme = "README.md"
 license = {text = "MIT"}
