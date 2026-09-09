@@ -1,0 +1,36 @@
+---
+layout: default
+---
+<article class="doc">
+  <header class="doc-header">
+    <p class="eyebrow"><span class="index">xaker /</span> {{ page.title }}</p>
+    <h1>{{ page.title }}</h1>
+    {%- if page.description -%}
+    <p class="doc-description">{{ page.description }}</p>
+    {%- endif -%}
+  </header>
+
+  <div class="doc-body">
+    {{ content }}
+  </div>
+
+  <aside class="doc-aside" aria-label="On this page">
+    <h5>On this page</h5>
+    <div class="toc">
+      {%- assign headings = content | split: '<h2' -%}
+      {%- if headings.size > 1 -%}
+      <ul>
+        {%- for chunk in headings -%}
+          {%- if forloop.first -%}{%- continue -%}{%- endif -%}
+          {%- assign id_part = chunk | split: 'id="' | slice: 1, 1 | first -%}
+          {%- assign id = id_part | split: '"' | first -%}
+          {%- assign rest = chunk | split: '>' | slice: 1, 1 | first | split: '</h2' | first -%}
+          <li><a href="#{{ id }}">{{ rest | strip }}</a></li>
+        {%- endfor -%}
+      </ul>
+      {%- else -%}
+      <ul><li class="muted">Single section.</li></ul>
+      {%- endif -%}
+    </div>
+  </aside>
+</article>

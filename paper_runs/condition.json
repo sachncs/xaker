@@ -1,0 +1,63 @@
+{
+  "config": {
+    "dim": 64,
+    "heads": 4,
+    "lam": 10.0,
+    "seeds": 3
+  },
+  "git_sha": "2573e4b6fb2e0d36fad4b4def3731ebc429decd5",
+  "torch_version": "2.14.0",
+  "by_length": {
+    "L=16": {
+      "standard": {
+        "score_cond": 1017.6799519856771,
+        "kernel_cond": 3.1130247116088867,
+        "ratio_kernel_to_score": 0.0030589427506504518
+      },
+      "xsa": {
+        "score_cond": 1017.6799519856771,
+        "kernel_cond": 3.353044033050537,
+        "ratio_kernel_to_score": 0.0032947922640198853
+      },
+      "fused": {
+        "score_cond": 1017.6799519856771,
+        "kernel_cond": 3.353044033050537,
+        "ratio_kernel_to_score": 0.0032947922640198853
+      }
+    },
+    "L=32": {
+      "standard": {
+        "score_cond": 3345.667236328125,
+        "kernel_cond": 5.656924724578857,
+        "ratio_kernel_to_score": 0.0016908210903805666
+      },
+      "xsa": {
+        "score_cond": 3345.667236328125,
+        "kernel_cond": 6.269115289052327,
+        "ratio_kernel_to_score": 0.0018738012020384583
+      },
+      "fused": {
+        "score_cond": 3345.667236328125,
+        "kernel_cond": 6.269115289052327,
+        "ratio_kernel_to_score": 0.0018738012020384583
+      }
+    },
+    "L=64": {
+      "standard": {
+        "score_cond": 12310.335286458334,
+        "kernel_cond": 12.762093544006348,
+        "ratio_kernel_to_score": 0.0010366974779350616
+      },
+      "xsa": {
+        "score_cond": 12310.335286458334,
+        "kernel_cond": 14.74256451924642,
+        "ratio_kernel_to_score": 0.001197576197251394
+      },
+      "fused": {
+        "score_cond": 12310.335286458334,
+        "kernel_cond": 14.74256451924642,
+        "ratio_kernel_to_score": 0.001197576197251394
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+[run]
+source = xaker
+omit =
+    xaker/bench/wikitext.py
+    xaker/bench/copy_task.py
+    xaker/cli/*
+    xaker/bench/condition.py
+    xaker/bench/ablate.py
+    xaker/bench/lra.py

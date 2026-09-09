@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "git_sha": "2573e4b6fb2e0d36fad4b4def3731ebc429decd5",
+  "torch_version": "2.14.0",
+  "cuda": false,
+  "device_name": "mps",
+  "cudnn_deterministic": false,
+  "spec": {
+    "lengths": [
+      16
+    ],
+    "dim": 64,
+    "heads": 4,
+    "batch": 4,
+    "kinds": [
+      "fused"
+    ],
+    "warmup": 2,
+    "runs": 5,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "precond": "cccp"
+  },
+  "results": {
+    "subtract:16": {
+      "forward_ms_mean": 0.9731836034916341,
+      "forward_ms_std": 0.15912437782955605,
+      "backward_ms_mean": 3.3157833910081536,
+      "backward_ms_std": 0.4016866289475603,
+      "memory_mib": 0.0,
+      "iters_mean": null,
+      "iters_std": null,
+      "converged": false
+    },
+    "zero:16": {
+      "forward_ms_mean": 0.829483603592962,
+      "forward_ms_std": 0.03948928821811146,
+      "backward_ms_mean": 3.150049800751731,
+      "backward_ms_std": 0.22221332476720074,
+      "memory_mib": 0.0,
+      "iters_mean": null,
+      "iters_std": null,
+      "converged": false
+    },
+    "mask:16": {
+      "forward_ms_mean": 0.8533663931302726,
+      "forward_ms_std": 0.03737014171403535,
+      "backward_ms_mean": 2.766558196162805,
+      "backward_ms_std": 0.09552156841498256,
+      "memory_mib": 0.0,
+      "iters_mean": null,
+      "iters_std": null,
+      "converged": false
+    }
+  }
+}

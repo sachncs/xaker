@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="xaker mark">
+  <title>xaker</title>
+  <rect width="64" height="64" rx="10" fill="#0a0b0e"/>
+  <!-- matrix / grid motif: 3x3 cells -->
+  <g stroke="#2a2d34" stroke-width="0.6" fill="none">
+    <line x1="14" y1="0" x2="14" y2="64"/>
+    <line x1="32" y1="0" x2="32" y2="64"/>
+    <line x1="50" y1="0" x2="50" y2="64"/>
+    <line x1="0" y1="14" x2="64" y2="14"/>
+    <line x1="0" y1="32" x2="64" y2="32"/>
+    <line x1="0" y1="50" x2="64" y2="50"/>
+  </g>
+  <!-- XSA diagonal-removal signature: diagonals zeroed, off-diagonal kernel signal -->
+  <g fill="none" stroke-linecap="square">
+    <!-- two crossing operator strokes -->
+    <line x1="14" y1="14" x2="50" y2="50" stroke="#e8e6df" stroke-width="2.8"/>
+    <line x1="50" y1="14" x2="14" y2="50" stroke="#e8e6df" stroke-width="2.8"/>
+    <!-- diagonal cells masked out (XSA exclusion): two black squares on the main diagonal -->
+    <rect x="29" y="29" width="6" height="6" fill="#0a0b0e"/>
+    <!-- center convergence node in accent amber -->
+    <circle cx="32" cy="32" r="2.4" fill="#ff6b1a"/>
+  </g>
+</svg>

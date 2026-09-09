@@ -1,0 +1,9 @@
+kind: wikitext
+lengths: [32, 64]
+dim: 32
+heads: 2
+batch: 2
+kinds: [standard, fused]
+warmup: 1
+runs: 2
+seeds: [0]

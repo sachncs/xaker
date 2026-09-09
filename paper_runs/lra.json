@@ -1,0 +1,196 @@
+{
+  "config": {
+    "device": "cpu",
+    "dim": 32,
+    "length": 16,
+    "epochs": 3
+  },
+  "git_sha": "2573e4b6fb2e0d36fad4b4def3731ebc429decd5",
+  "torch_version": "2.14.0",
+  "tasks": {
+    "copy": [
+      {
+        "task": "copy",
+        "kind": "standard",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 2.381953790783882,
+        "val_loss": 1.794417142868042,
+        "accuracy": 0.6953125,
+        "wall_seconds": 0.07065529099781998
+      },
+      {
+        "task": "copy",
+        "kind": "xsa",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 2.386736939350764,
+        "val_loss": 1.8065435886383057,
+        "accuracy": 0.69140625,
+        "wall_seconds": 0.06097500000032596
+      },
+      {
+        "task": "copy",
+        "kind": "fused",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 2.2226228465636573,
+        "val_loss": 1.6761214137077332,
+        "accuracy": 0.712890625,
+        "wall_seconds": 0.2718556250038091
+      },
+      {
+        "task": "copy",
+        "kind": "linear",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 2.715007483959198,
+        "val_loss": 2.6278937458992004,
+        "accuracy": 0.142578125,
+        "wall_seconds": 0.05239029199583456
+      }
+    ],
+    "reversal": [
+      {
+        "task": "reversal",
+        "kind": "standard",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 2.8487140834331512,
+        "val_loss": 2.8375666737556458,
+        "accuracy": 0.080078125,
+        "wall_seconds": 0.05193449999205768
+      },
+      {
+        "task": "reversal",
+        "kind": "xsa",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 2.85113995273908,
+        "val_loss": 2.841464400291443,
+        "accuracy": 0.080078125,
+        "wall_seconds": 0.05568137500085868
+      },
+      {
+        "task": "reversal",
+        "kind": "fused",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 2.8181391656398773,
+        "val_loss": 2.867734670639038,
+        "accuracy": 0.0703125,
+        "wall_seconds": 0.24568262498360127
+      },
+      {
+        "task": "reversal",
+        "kind": "linear",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 2.725541224082311,
+        "val_loss": 2.6519901752471924,
+        "accuracy": 0.142578125,
+        "wall_seconds": 0.052563457982614636
+      }
+    ],
+    "retrieval": [
+      {
+        "task": "retrieval",
+        "kind": "standard",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 1.1138376345237095,
+        "val_loss": 0.4604022279381752,
+        "accuracy": 0.94140625,
+        "wall_seconds": 0.05350949999410659
+      },
+      {
+        "task": "retrieval",
+        "kind": "xsa",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 1.2109786955018838,
+        "val_loss": 0.47523923218250275,
+        "accuracy": 0.94140625,
+        "wall_seconds": 0.057295915990835056
+      },
+      {
+        "task": "retrieval",
+        "kind": "fused",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 1.4962129940589268,
+        "val_loss": 0.5498331785202026,
+        "accuracy": 0.94140625,
+        "wall_seconds": 0.24933666698052548
+      },
+      {
+        "task": "retrieval",
+        "kind": "linear",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 0.6906116716563702,
+        "val_loss": 0.4107920452952385,
+        "accuracy": 0.94140625,
+        "wall_seconds": 0.055015958001604304
+      }
+    ],
+    "addition": [
+      {
+        "task": "addition",
+        "kind": "standard",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 1.8488758901755016,
+        "val_loss": 1.5073485672473907,
+        "accuracy": 0.55078125,
+        "wall_seconds": 0.05319825001060963
+      },
+      {
+        "task": "addition",
+        "kind": "xsa",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 1.8521159042914708,
+        "val_loss": 1.4929852485656738,
+        "accuracy": 0.552734375,
+        "wall_seconds": 0.05614520801464096
+      },
+      {
+        "task": "addition",
+        "kind": "fused",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 1.8959171921014786,
+        "val_loss": 1.4412027597427368,
+        "accuracy": 0.5625,
+        "wall_seconds": 0.25080833298852667
+      },
+      {
+        "task": "addition",
+        "kind": "linear",
+        "dim": 32,
+        "length": 16,
+        "epochs": 3,
+        "train_loss": 1.8071910242239635,
+        "val_loss": 1.6599725782871246,
+        "accuracy": 0.556640625,
+        "wall_seconds": 0.05401824999717064
+      }
+    ]
+  }
+}

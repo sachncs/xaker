@@ -1,0 +1,57 @@
+<footer class="site-footer" role="contentinfo">
+  <div class="container">
+
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="{{ '/' | relative_url }}">
+          <img class="brand-mark" src="{{ '/assets/favicon.svg' | relative_url }}" alt="" width="32" height="32">
+          <span class="brand-name">{{ site.title }}</span>
+        </a>
+        <p>
+          A mathematically grounded attention framework that replaces
+          conventional attention assumptions with a fused, solver-backed
+          formulation. Open source. MIT licensed.
+        </p>
+      </div>
+
+      <div class="footer-col">
+        <h5>Documentation</h5>
+        <ul>
+          <li><a href="{{ '/getting-started/' | relative_url }}">Getting started</a></li>
+          <li><a href="{{ '/tutorial/' | relative_url }}">Tutorial</a></li>
+          <li><a href="{{ '/architecture/' | relative_url }}">Architecture</a></li>
+          <li><a href="{{ '/api/' | relative_url }}">API reference</a></li>
+          <li><a href="{{ '/design_decisions/' | relative_url }}">Design decisions</a></li>
+          <li><a href="{{ '/recipes/' | relative_url }}">Recipes</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5>Reference</h5>
+        <ul>
+          <li><a href="{{ '/math/' | relative_url }}">Mathematical foundations</a></li>
+          <li><a href="{{ '/faq/' | relative_url }}">FAQ</a></li>
+          <li><a href="{{ '/limitations/' | relative_url }}">Limitations</a></li>
+          <li><a href="{{ '/paper_rubric/' | relative_url }}">Paper rubric</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h5>Source</h5>
+        <ul>
+          <li><a href="https://github.com/{{ site.repository }}">GitHub repository</a></li>
+          <li><a href="https://github.com/{{ site.repository }}/issues">Issues</a></li>
+          <li><a href="https://github.com/{{ site.repository }}/blob/master/CHANGELOG.md">Changelog</a></li>
+          <li><a href="https://github.com/{{ site.repository }}/blob/master/CITATION.cff">Cite</a></li>
+          <li><a href="https://github.com/{{ site.repository }}/blob/master/CONTRIBUTING.md">Contribute</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bar">
+      <span>© {{ site.time | date: '%Y' }} {{ site.author | default: 'sachin' }}. Released under the MIT License.</span>
+      <span>v0.5.1 · build {{ site.repository }}@master · attention, solved.</span>
+    </div>
+
+  </div>
+</footer>

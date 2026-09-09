@@ -1,0 +1,42 @@
+<header class="site-header" role="banner">
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <div class="container header-row">
+    <a class="brand" href="{{ '/' | relative_url }}">
+      <img class="brand-mark" src="{{ '/assets/favicon.svg' | relative_url }}" alt="" width="32" height="32">
+      <span class="brand-name">{{ site.brand_name | default: site.title }}</span>
+      <span class="brand-meta">{{ site.brand_meta | default: 'attention, solved.' }}</span>
+    </a>
+
+    {%- assign primary = site.nav.primary -%}
+    {%- assign external = site.nav.external -%}
+    <nav class="site-nav" aria-label="Primary">
+      <button class="nav-toggle" aria-controls="primary-nav" aria-expanded="false" type="button" aria-label="Toggle menu">
+        <span class="bar"></span>
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+      <div id="primary-nav" style="display: contents;">
+        <ul class="nav-list">
+          {%- for item in primary -%}
+            {%- assign active = false -%}
+            {%- if item.url == '/' -%}
+              {%- if page.url == '/' or page.url == '/index.html' -%}{%- assign active = true -%}{%- endif -%}
+            {%- else -%}
+              {%- if page.url contains item.url -%}{%- assign active = true -%}{%- endif -%}
+            {%- endif -%}
+            <li>
+              <a href="{{ item.url | relative_url }}"{% if active %} aria-current="page" class="is-active"{% endif %}>{{ item.title }}</a>
+            </li>
+          {%- endfor -%}
+          {%- if external.size > 0 -%}
+            <li class="nav-external">
+              {%- for item in external -%}
+                <a href="{{ item.url }}" rel="noopener">{{ item.title }}</a>
+              {%- endfor -%}
+            </li>
+          {%- endif -%}
+        </ul>
+      </div>
+    </nav>
+  </div>
+</header>

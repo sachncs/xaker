@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+
+# Paper runs: tracked JSONs are reproducible from in-tree specs;
+# any *.tmp or *.bak scratch files are still ignored.
+paper_runs/*.tmp
+paper_runs/*.bak
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# Jekyll build output (generated locally; GH Pages rebuilds on push)
+_site/

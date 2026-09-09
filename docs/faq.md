@@ -1,0 +1,135 @@
+---
+layout: page
+title: "FAQ"
+description: "Short answers to the questions that come up most often when reading the xaker source and the paper."
+permalink: "/faq/"
+---
+
+**Audience: anyone with a question that has come up more than once.**
+
+**Time: short — each answer is two paragraphs.**
+
+## Why is the package called `xaker`?
+
+`xaker` (e**X**clusive self-**A**ttention **KER**nel ridge) is a
+single searchable brand for the library's flagship contribution: an
+Exclusive Self Attention (XSA) block combined with a kernel ridge
+regression formulation solved by Preconditioned Conjugate Gradient.
+The name is one word and fits the project's naming convention.
+
+## What happened to the v1 attention classes?
+
+`LakerAttentionLayer`, `KernelFunction`, `LearnedPreconditioner`,
+`KernelAttentionRegression`, `FusedXSALAKERAttention` were deprecated
+in 0.3 and hard-deleted in 0.4. The v2 `Fused` module replaces them
+with a single polymorphic strategy.
+
+## Why does `pcg` return a `Solve` dataclass?
+
+`Solve(x, iters, converged, res, history)` exposes everything the
+caller needs to decide whether to trust the iterative result, fall
+back to a direct solver, or log the residual decay trajectory.
+Callers can write `Fused.attend` against this contract without
+needing to introspect private state.
+
+## Why does `Fused` always allocate `xsa_scale` as `nn.Parameter`?
+
+Even for `mode="zero"` (which doesn't use it), the parameter is
+allocated. This keeps `state_dict` keys stable across modes and
+avoids `if mode ==` branching in `__init__`.
+
+## What does the polymorphism look like?
+
+Three single-entry factories replace the `if mode ==` chains the v1
+codebase used to scatter through `attention/` and `solver/`:
+
+```python
+from xaker import Config, BLOCK, Make, XsaStrategy
+
+cfg = Config(dim=64, heads=4, precond="fast")
+
+attn = BLOCK["fused"](cfg)                      # Standard / Xsa / Fused / Linear
+preconditioner = Make(cfg)                      # preconditioner
+strategy = XsaStrategy(cfg, scale=...)          # Projection / Zero / Mask
+```
+
+Adding a new variant is one class plus one entry in the dispatch
+table.
+
+## Why is `keep` named `keep`?
+
+`mask` is the parameter name on `attend(q, k, v, mask)`. The free
+function that applies a mask to scores is exported as `keep(scores,
+mask, fill)` — chosen because it does not collide with the parameter
+name. Old code referenced `apply_mask`; that was renamed to `keep`
+in 0.4.
+
+## Why is `toctx` instead of `to_device`?
+
+`toctx(tensor, ctx)` is the only tensor-context helper; a single
+compound identifier keeps the public surface small and consistent
+with the no-underscore rule.
+
+## Why is `rng` separate from `random`?
+
+`xaker.utils.rng` exposes `seed, snapshot, restore` with consistent
+seeding across Python, NumPy, PyTorch CPU, and CUDA. Using the
+single-word name `rng` keeps the public API tight and avoids the
+name `random` clashing with the stdlib.
+
+## How do I add a new attention variant?
+
+1. Implement your class in `xaker/attention/<name>.py`, subclassing
+   `Base` and overriding `attend(q, k, v, m)`.
+2. Register it in `xaker/attention/__init__.py:BLOCK`.
+3. Add it to `Model(attention_type=...)` choices.
+
+That's it — `Block` accepts attention by dependency injection.
+
+## How do I add a new preconditioner?
+
+1. Subclass `nn.Module` in `xaker/solver/precond.py` and implement
+   `build(kernel, lam, length) -> Cache` and
+   `apply_pre(residual, data) -> Tensor`.
+2. Register the class in the `MODE` dict inside
+   `xaker/solver/precond.py` so `Make(config)` can dispatch by name.
+3. Add the new value to `Config.precond`'s `Literal[...]` type.
+
+## Why are there no `import x as y` aliases anywhere?
+
+Single-word naming + module boundaries make aliases redundant. CI
+(`xaker/rubric/grader.py:usability`) flags any `import x as y` as a
+failure.
+
+## What does `xaker-validate` check?
+
+Six dimensions: novelty, repro, correctness, efficiency, stability,
+usability. Each scored 0-3; total max 18. CI fails on
+`total < 14` or any non-novelty dimension below 2. Run locally with
+`xaker-validate --repo-root . --min-total 14`.
+
+## Why is `Linear` in `BLOCK` when it has nothing to do with XSA?
+
+`Linear` is the real linear-complexity baseline from
+Katharopoulos et al., 2020. It is included so the paper can
+quantify what Fused buys you over both vanilla softmax attention
+(`Standard`) and the only other credible O(n)-memory alternative
+(`Linear`). Empirically, `Linear` fails on positional tasks
+because the `elu + 1` feature map does not encode position; see
+`RESULTS.md` Section 7.
+
+## Why does `Linear` fail on the LRA copy task?
+
+The `elu + 1` feature map collapses the temporal structure of
+the input: `phi(q_i) @ phi(k_j)` is invariant to position. The
+copy task requires reconstructing the input in the original order,
+which is impossible without positional information. `Standard`,
+`Xsa`, and `Fused` all carry positional information through the
+softmax / kernel and solve the task at length=32; `Linear`
+plateaus at chance accuracy.
+
+
+
+## Next steps
+- [Architecture](/xaker/architecture/) — module-by-module context for these answers.
+- [Recipes](/xaker/recipes/) — concrete tinkerer patterns that complement the Q&A here.

@@ -1,0 +1,9 @@
+kind: stability
+lengths: [16]
+dim: 32
+heads: 2
+batch: 2
+kinds: [fused]
+warmup: 1
+runs: 2
+seeds: [0, 1, 2]

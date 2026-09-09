@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "git_sha": "2573e4b6fb2e0d36fad4b4def3731ebc429decd5",
+  "torch_version": "2.14.0",
+  "cuda": false,
+  "device_name": "cpu",
+  "cudnn_deterministic": false,
+  "spec": {
+    "lengths": [
+      16
+    ],
+    "dim": 32,
+    "heads": 2,
+    "batch": 2,
+    "kinds": [
+      "fused"
+    ],
+    "warmup": 1,
+    "runs": 2,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "precond": "fast"
+  },
+  "results": {
+    "fused:16": {
+      "forward_ms_mean": 1.5498334978474304,
+      "forward_ms_std": 0.02410032118881021,
+      "backward_ms_mean": 2.721041499171406,
+      "backward_ms_std": 0.04431226633023646,
+      "memory_mib": 0.0,
+      "iters_mean": 50.0,
+      "iters_std": 0.0,
+      "converged": false
+    }
+  }
+}

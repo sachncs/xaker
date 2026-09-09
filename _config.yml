@@ -1,0 +1,99 @@
+title: "xaker"
+description: "A mathematically grounded attention framework that replaces conventional attention assumptions with a fused, solver-backed formulation. XSA + kernel ridge regression + PCG, in one PyTorch module."
+tagline: "Exclusive Self Attention, fused with kernel ridge regression and solved by Preconditioned Conjugate Gradient."
+author: "sachin"
+theme: minima
+logo: /assets/logo.svg
+favicon: /assets/favicon.svg
+show_downloads: false
+permalink: /:title/
+url: "https://sachncs.github.io"
+baseurl: "/xaker"
+repository: sachncs/xaker
+github_branch: master
+twitter:
+  username: sachncs
+google_analytics: ""
+
+plugins:
+  - jekyll-feed
+
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: "default"
+      brand_name: "xaker"
+      brand_short: "xaker"
+      brand_meta: "Attention, solved."
+      brand_tagline: "Exclusive Self Attention, fused with kernel ridge regression and solved by PCG."
+
+# Track-based navigation. The header surfaces the primary nav only;
+# full doc tracks live on the homepage documentation section.
+nav:
+  primary:
+    - title: "Docs"
+      url: "/getting-started/"
+    - title: "Tutorial"
+      url: "/tutorial/"
+    - title: "Architecture"
+      url: "/architecture/"
+    - title: "API"
+      url: "/api/"
+    - title: "Math"
+      url: "/math/"
+  external:
+    - title: "GitHub ↗"
+      url: "https://github.com/sachncs/xaker"
+
+social_links:
+  github: sachncs/xaker
+  issues: sachncs/xaker/issues
+  changelog: sachncs/xaker/blob/master/CHANGELOG.md
+
+markdown: kramdown
+highlighter: rouge
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  hard_wrap: false
+sass:
+  quiet_deps: true
+
+# Strict exclusion: only the published site ships.
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - "*.pyc"
+  - "_test/"
+  - ".pytest_cache/"
+  - ".mypy_cache/"
+  - ".coverage"
+  - ".coveragerc"
+  - "paper_runs/"
+  - "scripts/"
+  - "tests/"
+  - "examples/"
+  - "xaker/"
+  - "dist/"
+  - "build/"
+  - ".flake8"
+  - ".gitignore"
+  - ".gitattributes"
+  - ".editorconfig"
+  - "STATUS.md"
+  - "CHANGELOG.md"
+  - "CONTRIBUTING.md"
+  - "CODE_OF_CONDUCT.md"
+  - "LICENSE"
+  - "MANIFEST.in"
+  - "RESULTS.md"
+  - "SECURITY.md"
+  - "SUPPORT.md"
+  - "README.md"
+  - "pyproject.toml"
+  - "CITATION.cff"
+
+include:
+  - _pages

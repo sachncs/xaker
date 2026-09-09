@@ -1,0 +1,114 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xaker"
+version = "0.5.1"
+description = "Exclusive Self Attention (XSA) for Transformer models"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "sachin", email = "sachncs@gmail.com"}
+]
+keywords = [
+    "attention",
+    "transformer",
+    "xsa",
+    "kernel-methods",
+    "kernel-ridge-regression",
+    "preconditioned-conjugate-gradient",
+    "pytorch",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-randomly>=3.0.0",
+    "pylint>=2.17.0",
+    "black>=23.0.0",
+    "mypy>=1.0.0",
+]
+paper = [
+    "matplotlib>=3.5.0",
+    "pandas>=1.4.0",
+    "pyyaml>=6.0",
+]
+
+[project.urls]
+Homepage = "https://sachncs.github.io/xaker/"
+Repository = "https://github.com/sachncs/xaker.git"
+Issues = "https://github.com/sachncs/xaker/issues"
+Changelog = "https://github.com/sachncs/xaker/blob/master/CHANGELOG.md"
+Documentation = "https://sachncs.github.io/xaker/"
+
+[project.scripts]
+xaker-train = "xaker.cli.train:main"
+xaker-eval = "xaker.cli.eval:main"
+xaker-bench = "xaker.cli.bench:main"
+xaker-validate = "xaker.cli.validate:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+[tool.pylint.main]
+ignore = []
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-module-docstring",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "too-many-locals",
+    "too-many-instance-attributes",
+    "invalid-name",
+    "duplicate-code",
+    "not-callable",
+    "broad-exception-caught",
+    "abstract-method",
+    "unused-argument",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "rubric: paper-worthiness rubric gating",
+    "slow: long-running benchmark/scaling tests",
+    "property: property-based tests",
+    "bench: benchmark execution tests",
+]

@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "XAKER: Exclusive Self Attention for Transformer Models"
+abstract: "Production-grade implementation of Exclusive Self Attention (XSA) for Transformer models, including a fused XSA + kernel ridge-regression variant solved by Preconditioned Conjugate Gradient."
+authors:
+  - family-names: "sachin"
+    name: "sachin"
+    email: "sachncs@gmail.com"
+version: 0.5.1
+date-released: 2026-09-03
+url: "https://github.com/sachncs/xaker"
+contact:
+  - name: "sachin"
+    email: "sachncs@gmail.com"
+keywords:
+  - "attention"
+  - "transformer"
+  - "xsa"
+  - "kernel-methods"
+  - "kernel-ridge-regression"
+  - "preconditioned-conjugate-gradient"
+  - "pytorch"
+  - "deep-learning"
+license: MIT
+references:
+  - type: software
+    title: "XAKER source repository (paper in preparation)"
+    authors:
+      - family-names: "sachin"
+        name: "sachin"
+        email: "sachncs@gmail.com"
+    version: 0.5.1
+    date-released: 2026-09-03
+    url: "https://github.com/sachncs/xaker"
+    note: "Companion implementation. Paper submission pending; arXiv identifier will replace this entry on submission."

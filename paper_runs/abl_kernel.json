@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "git_sha": "2573e4b6fb2e0d36fad4b4def3731ebc429decd5",
+  "torch_version": "2.14.0",
+  "cuda": false,
+  "device_name": "mps",
+  "cudnn_deterministic": false,
+  "spec": {
+    "lengths": [
+      16
+    ],
+    "dim": 64,
+    "heads": 4,
+    "batch": 4,
+    "kinds": [
+      "fused"
+    ],
+    "warmup": 2,
+    "runs": 5,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "precond": "cccp"
+  },
+  "results": {
+    "exp:16": {
+      "forward_ms_mean": 1.0060501983389258,
+      "forward_ms_std": 0.10069613801225653,
+      "backward_ms_mean": 3.0804499925579876,
+      "backward_ms_std": 0.18305517830622883,
+      "memory_mib": 0.0,
+      "iters_mean": null,
+      "iters_std": null,
+      "converged": false
+    },
+    "rbf:16": {
+      "forward_ms_mean": 0.9018582117278129,
+      "forward_ms_std": 0.03433156606524501,
+      "backward_ms_mean": 2.748091594548896,
+      "backward_ms_std": 0.09092825329692235,
+      "memory_mib": 0.0,
+      "iters_mean": null,
+      "iters_std": null,
+      "converged": false
+    },
+    "linear:16": {
+      "forward_ms_mean": 0.8858081942889839,
+      "forward_ms_std": 0.06518108218138377,
+      "backward_ms_mean": 2.748349995817989,
+      "backward_ms_std": 0.07991552244111304,
+      "memory_mib": 0.0,
+      "iters_mean": null,
+      "iters_std": null,
+      "converged": false
+    },
+    "cosine:16": {
+      "forward_ms_mean": 0.8684414031449705,
+      "forward_ms_std": 0.061554342260661775,
+      "backward_ms_mean": 2.800858800765127,
+      "backward_ms_std": 0.10125719859868294,
+      "memory_mib": 0.0,
+      "iters_mean": null,
+      "iters_std": null,
+      "converged": false
+    }
+  }
+}
